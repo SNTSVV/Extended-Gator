@@ -193,7 +193,7 @@ public class Configs {
       apkModeProcessing();
       // return;
     } else {
-      depJars = Lists.newArrayList();
+/*      depJars = Lists.newArrayList();
       File f = new File(project + "/libs");
       if (f.exists()) {
         File[] files = f.listFiles();
@@ -201,6 +201,18 @@ public class Configs {
           String fn = file.getName();
           if (fn.endsWith(".jar")) {
             depJars.add(file.getAbsolutePath());
+          }
+        }
+      }*/
+      File f = new File(project);
+      if (f.exists()) {
+        File[] files = f.listFiles();
+        for (File file : files) {
+          String fn = file.getName();
+          if (fn.endsWith(".apk")) {
+            project = file.getPath();
+            apkModeProcessing();
+            break;
           }
         }
       }

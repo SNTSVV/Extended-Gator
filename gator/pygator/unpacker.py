@@ -4,7 +4,7 @@ from subprocess import call
 from pygator.utils import make_temp_dir
 
 JAR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                   '..', 'tools', 'apktool_2.4.0.jar')
+                   '..', 'tools', 'apktool_2.4.1.jar')
 
 
 def decode_res_from_apk(apk_path):

@@ -1,7 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="4f1a2d1e-4d30-4c36-ae37-e8446aa96ece" name="Default Changelist" comment="" />
+    <list default="true" id="4f1a2d1e-4d30-4c36-ae37-e8446aa96ece" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/gator/app.reading.stoic.stoicreading-AppModel.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gator/benchmark/app.reading.stoic.stoicreading_38.apk" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gator/benchmark/app.reading.stoic.stoicreading_38_39.apk.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gator/benchmark/app.reading.stoic.stoicreading_39.apk" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gator/benchmark/app.reading.stoic.stoicreading_39_41.apk.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gator/benchmark/app.reading.stoic.stoicreading_41.apk" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gator/benchmark/app.reading.stoic.stoicreading_41_43.apk.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gator/benchmark/app.reading.stoic.stoicreading_43.apk" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gator/benchmark/app.reading.stoic.stoicreading_43_44.apk.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gator/benchmark/app.reading.stoic.stoicreading_44.apk" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gator/benchmark/app.reading.stoic.stoicreading_44_45.apk.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gator/benchmark/app.reading.stoic.stoicreading_45.apk" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gator/benchmark/app.reading.stoic.stoicreading_45_46.apk.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gator/benchmark/app.reading.stoic.stoicreading_46.apk" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gator/benchmark/app.reading.stoic.stoicreading_46_48.apk.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gator/benchmark/app.reading.stoic.stoicreading_48.apk" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gator/benchmark/app.reading.stoic.stoicreading_48_50.apk.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gator/benchmark/app.reading.stoic.stoicreading_50.apk" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gator/benchmark/app.reading.stoic.stoicreading_50_63.apk.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gator/benchmark/app.reading.stoic.stoicreading_63.apk" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gator/pygator/unpacker.py" beforeDir="false" afterPath="$PROJECT_DIR$/gator/pygator/unpacker.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gator/sootandroid/src/main/java/presto/android/gui/clients/regression/GUIUserInteractionClient.kt" beforeDir="false" afterPath="$PROJECT_DIR$/gator/sootandroid/src/main/java/presto/android/gui/clients/regression/GUIUserInteractionClient.kt" afterDir="false" />
+    </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -9,17 +34,27 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="Git.Settings">
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
   <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/gator/sootandroid/src/main/java/presto/android/gui/clients/regression/GUIUserInteractionClient.kt" root0="SKIP_INSPECTION" />
     <setting file="file://$PROJECT_DIR$/gator/sootandroid/src/main/java/presto/android/gui/clients/regression/helper/CallbackFinder.kt" root0="SKIP_INSPECTION" />
   </component>
   <component name="ProjectId" id="1XnH0ikwqxFMX94ulIEL86vozpk" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
   <component name="PropertiesComponent">
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
-    <property name="settings.editor.selected.configurable" value="preferences.pluginManager" />
+    <property name="ASKED_ADD_EXTERNAL_FILES" value="true" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/gator/benchmark" />
+    <property name="settings.editor.selected.configurable" value="project.propVCSSupport.Mappings" />
+  </component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/gator/benchmark" />
+      <recent name="$PROJECT_DIR$/gator/tools" />
+    </key>
   </component>
   <component name="RunDashboard">
     <option name="ruleStates">
@@ -46,15 +81,23 @@
     </task>
     <servers />
   </component>
+  <component name="UnknownFeatures">
+    <option featureType="com.intellij.fileTypeFactory" implementationName="*.py" />
+  </component>
   <component name="Vcs.Log.Tabs.Properties">
     <option name="TAB_STATES">
       <map>
         <entry key="MAIN">
           <value>
-            <State />
+            <State>
+              <option name="COLUMN_ORDER" />
+            </State>
           </value>
         </entry>
       </map>
     </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
   </component>
 </project>

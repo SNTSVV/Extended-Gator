@@ -2377,7 +2377,8 @@ public class Flowgraph implements MethodNames {
   final SootClass recyclerAdapter1Class =
           Scene.v().getSootClass("androidx.recyclerview.widget.RecyclerView$Adapter");
 
-  final SootClass viewHolderClass = Scene.v().getSootClass("android.support.v7.widget.RecyclerView$ViewHolder");
+  final SootClass viewHolderClass1 = Scene.v().getSootClass("android.support.v7.widget.RecyclerView$ViewHolder");
+  final SootClass viewHolderClass2 = Scene.v().getSootClass("androidx.recyclerview.widget.RecyclerView$ViewHolder");
   Set<Stmt> listViewSetAdapterCalls = Sets.newHashSet();
   Set<Stmt> listAdapterConstructorCalls = Sets.newHashSet();
   Set<Stmt> recyclerViewAdapterCreateHolderCalls = Sets.newHashSet();
@@ -2392,7 +2393,8 @@ public class Flowgraph implements MethodNames {
     }
     Local receiver = jimpleUtil.receiver(ie);
     SootClass receiverClass = ((RefType) receiver.getType()).getSootClass();
-    if (!hier.isSubclassOf(receiverClass, viewHolderClass)) {
+    if (!hier.isSubclassOf(receiverClass, viewHolderClass1) &&
+    !hier.isSubclassOf(receiverClass,viewHolderClass2)) {
       return false;
     }
     Logger.verb("DEBUG", "View holder construction: "+ s.toString());

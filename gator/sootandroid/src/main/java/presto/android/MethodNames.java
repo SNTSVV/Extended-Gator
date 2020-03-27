@@ -128,10 +128,14 @@ public interface MethodNames {
           "onCreateViewHolder(android.view.ViewGroup,int)";
   String newViewSubSig =
           "android.view.View newView(android.content.Context,android.database.Cursor,android.view.ViewGroup)";
-  String getChildViewHolderSubSig =
+  String getChildViewHolderSubSig1 =
           "android.support.v7.widget.RecyclerView$ViewHolder getChildViewHolder(android.view.ViewGroup)";
-  String createViewHolderSubSig =
+  String createViewHolderSubSig1 =
           "android.support.v7.widget.RecyclerView$ViewHolder onCreateViewHolder(android.view.ViewGroup,int)>";
+  String getChildViewHolderSubSig2 =
+          "androidx.recyclerview.widget.RecyclerView$ViewHolder getChildViewHolder(android.view.ViewGroup)";
+  String createViewHolderSubSig2 =
+          "androidx.recyclerview.widget.RecyclerView$ViewHolder onCreateViewHolder(android.view.ViewGroup,int)>";
   //--- Some "non-standard" callbacks in the framework
   String onDrawerOpenedSubsig = "void onDrawerOpened()";
 
@@ -296,6 +300,6 @@ public interface MethodNames {
   String fragmentTransaction3ReplaceSubSig4 = fragmentTransactionClass3 + " replace(int,"+ fragmentClass3 +",android.os.Bundle,java.lang.String)";
 
   //recycleview
-  String recycleViewsetAdapterSubSig1 = "void setAdapter(" + "androidx.recyclerview.widget.RecyclerView$Adapter" +")";
-  String recycleViewsetAdapterSubSig2 = "void setAdapter(" + "android.support.v7.widget.RecyclerView$Adapter" +")";
+  String recycleViewsetAdapterSubSig2 = "void setAdapter(" + "androidx.recyclerview.widget.RecyclerView$Adapter" +")";
+  String recycleViewsetAdapterSubSig1 = "void setAdapter(" + "android.support.v7.widget.RecyclerView$Adapter" +")";
 }
