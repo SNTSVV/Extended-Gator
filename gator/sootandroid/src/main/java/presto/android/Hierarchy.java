@@ -62,7 +62,7 @@ public class Hierarchy {
 
   public boolean isGUIClass(final SootClass c) {
     return isSubclassOf(c, viewClass) || isSubclassOf(c, menuClass)
-            || isSubclassOf(c, menuItemClass);
+            || isSubclassOf(c, menuItemClass) ;
   }
 
   public boolean isViewClass(final SootClass c) {

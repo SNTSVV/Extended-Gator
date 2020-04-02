@@ -21,6 +21,7 @@ import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -93,7 +94,7 @@ public class FixpointComputationOptimized {
                     else if (target instanceof NSetListenerOpNode
                             && reachables.contains(((NSetListenerOpNode) target).getParameter())) {
                         if (source instanceof NOpNode) {
-                            //Logger.verb("FixpointOptimized", "Set Listener: "+ target.toString());
+                            Logger.verb("FixpointOptimized", "ReachedListener: " + source.toString() + "--> "+ target.toString());
 
                             //the result of source could flow to SetListener
                             //If source is NObjectNode, it will be taken care of later.
@@ -119,10 +120,8 @@ public class FixpointComputationOptimized {
                             //MenuNode cannot be a receiver of SetId
                             continue;
                         }
-                        /*if (target instanceof NAddView2OpNode)
-                        {
-                            Logger.verb("FixpointOptimized", "Target: "+ target.toString());
-                        }*/
+
+                        Logger.verb("FixpointOptimized", "reachedReceiverViews: " + source.toString() +"--> "+ target.toString());
                         MultiMapUtil.addKeyAndHashSetElement(solver.reachingReceiverViews,
                                 (NOpNode) target, source);
                         if (source instanceof NOpNode) {
@@ -175,20 +174,24 @@ public class FixpointComputationOptimized {
                     }
                 }
             }
+            //Resolve fields calling
+
         }
+
         solver.solutionResultsReachability();
     }
 
     static void windowReachability(FixpointSolver solver) {
         Logger.verb(FixpointComputationOptimized.class.getSimpleName(), ".......");
         for (NWindowNode windowNode : NWindowNode.windowNodes) {
-            //Logger.verb("DEBUG","[windowReachability] windowNode: "+windowNode);
+            Logger.verb("windowReachability","windowNode: "+windowNode);
             Set<NNode> reachables = solver.graphUtil.reachableNodes(windowNode);
             for (NNode target : reachables) {
-                //Logger.verb("DEBUG","[windowReachability] reachable: "+target);
+
                 if (!(target instanceof NOpNode)) {
                     continue;
                 }
+                Logger.verb("windowReachability","reachable: "+target);
                 NOpNode opNode = (NOpNode) target;
                 if ((opNode instanceof NInflate2OpNode
                         || opNode instanceof NAddView1OpNode

@@ -27,6 +27,7 @@ import presto.android.gui.wtg.util.WTGUtil;
 import presto.android.xml.XMLParser;
 import soot.*;
 import soot.jimple.*;
+import soot.jimple.internal.JCastExpr;
 import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Sources;
 import soot.tagkit.IntegerConstantValueTag;
@@ -345,7 +346,7 @@ public class Flowgraph implements MethodNames {
       if (WTGUtil.v().isIgnoredClass(c)) {
         continue;
       }
-      //Logger.verb("Flowgraph", "Processing class: "+c.getName());
+      Logger.verb("Flowgraph", "Processing class: "+c.getName());
       numClass += 1;
       //for (Iterator<SootMethod> iter = c.getMethods().iterator(); iter.hasNext();) {
       for (Iterator<SootMethod> iter = Lists.newArrayList(c.getMethods()).iterator();
@@ -1013,11 +1014,11 @@ public class Flowgraph implements MethodNames {
       }
     }
     SootClass callerClass = caller.getDeclaringClass();
-    if ( caller.getSubSignature().equals(onCreateView)){
+    if ( caller.getSubSignature().equals(onCreateView) ){
       SootClass fragmentClass = caller.getDeclaringClass();
       if (hier.isFragmentClass(fragmentClass))
       {
-        //Logger.verb(this.getClass().getSimpleName(),fragmentClass.getName()+" has [Inflate1]");
+        Logger.verb("ProcessFragment",fragmentClass.getName()+" has [Inflate1]");
         allFragmentLayoutsMap.put(layoutIdNode, fragmentClass);
         inflateViewsAndFragmentMap.put(lhsNode, fragmentClass);
       }
@@ -1197,7 +1198,7 @@ public class Flowgraph implements MethodNames {
     }
     String subsig = callee.getSubSignature();
 
-    if (!subsig.equals(findViewByIdSubSig)) {
+    if (!subsig.equals(findViewByIdSubSig) && !subsig.equals(findCachedViewByIdSubSig)) {
       return null;
     }
     Local receiver = jimpleUtil.receiver(ie);
@@ -1213,8 +1214,8 @@ public class Flowgraph implements MethodNames {
     boolean isDialog = hier.libraryDialogClasses.contains(receiverClass)
             || hier.applicationDialogClasses.contains(receiverClass);
     boolean isFragment = hier.libFragmentClasses.contains(receiverClass)
-            || hier.applicationActivityClasses.contains(receiverClass);
-    if (!isActivity && !isDialog && !isFragment) {
+            || hier.applicationFragmentClasses.contains(receiverClass);
+    if (!isActivity && !isDialog && !isFragment ) {
       return null;
     }
     //It is possible that the return value of FindViewById is not saved
@@ -1534,7 +1535,7 @@ public class Flowgraph implements MethodNames {
     for (SootMethod h : handlers) {
       // this := listenerObject
       listenerObject.addEdgeTo(varNode(jimpleUtil.thisLocal(h)), s);
-
+      Logger.verb("processSetListener", "Listener: "+ h.getSignature());
       // Find the view parameter in the event handler, and then do:
       // viewPara := viewObject
       String handlerSubsig = h.getSubSignature();
@@ -1543,8 +1544,10 @@ public class Flowgraph implements MethodNames {
       int localVariableIndexForViewParameter = parameterPositionForView + 1;
 
       if (parameterPositionForView == ListenerSpecification.UNKNOWN_POSITION) {
+        Logger.verb("processSetListener", "Listener: Unknown position for view parameter");
         continue;
       }
+
 
       Local viewPara = jimpleUtil.localForNthParameter(h, localVariableIndexForViewParameter);
       Type viewParaType = viewPara.getType();
@@ -1563,6 +1566,7 @@ public class Flowgraph implements MethodNames {
                         + ", reason: " + s + " in " + (callSite != null ? callSite.getO2() : null));
         continue;
       }
+      Logger.verb("processSetListener", "View object: "+viewObject.toString() +" --> Handler: " + h.getSignature() + " --> viewPara: " +viewPara.toString() );
       viewObject.addEdgeTo(varNode(viewPara), s);
     }
 
@@ -3973,6 +3977,7 @@ public class Flowgraph implements MethodNames {
     return lhsNode;
   }
 
+
   // Resolve the alert dialog builder objects a receiver variable can reference
   void alertDialogBuilderBackwardReachability() {
     receiverBackwardReachability(alertDialogBuilderAsReceiverSetterCalls,
@@ -4825,7 +4830,6 @@ public class Flowgraph implements MethodNames {
   }
 
   private void fixForRToLocal(SootField f, NFieldNode n) {
-
     SootClass decl = f.getDeclaringClass();
     String clzName = decl.getShortName();
     if (!clzName.startsWith("R$"))
@@ -4839,6 +4843,7 @@ public class Flowgraph implements MethodNames {
     }
     if (idNode != null && !(idNode instanceof NIntConstantNode)) {
       idNode.addEdgeTo(n);
+      Logger.verb("fixRToLocal",idNode.toString() + " -->" + n.toString());
     }
   }
 
@@ -5267,9 +5272,10 @@ public class Flowgraph implements MethodNames {
     || transaction3Add1Match || transaction3Add2Match || transaction3Add3Match
     || transaction3Add4Match || transaction3Add5Match))
       return false;
-    Logger.verb("DEBUG","[Flowgraph] AddFragmentStm: "+s.toString());
+    Logger.verb("ProcessFragment","[Flowgraph] AddFragmentStm: "+s.toString());
+    Logger.verb("ProcessFragment","[Flowgraph] AddFragmentStm: "+s.toString());
     SootMethod caller = jimpleUtil.lookup(s);
-    Logger.verb("DEBUG","[Flowgraph] Caller: "+ caller.getSignature());
+    Logger.verb("ProcessFragment","[Flowgraph] Caller: "+ caller.getSignature());
     try {
       Local receiver = jimpleUtil.receiver(ie);
 
@@ -5336,14 +5342,15 @@ public class Flowgraph implements MethodNames {
     || transaction3Replace1Match || transaction3Replace2Match
     || transaction3Replace3Match || transaction3Replace4Match))
       return false;
-    Logger.verb("DEBUG","[Flowgraph] ReplaceFragmentStm: "+s.toString());
+    Logger.verb("ProcessFragment","[Flowgraph] ReplaceFragmentStm: "+s.toString());
     SootMethod caller = jimpleUtil.lookup(s);
-    Logger.verb("DEBUG","[Flowgraph] Caller: "+ caller.getSignature());
+    Logger.verb("ProcessFragment","[Flowgraph] Caller: "+ caller.getSignature());
     try {
       Local receiver = jimpleUtil.receiver(ie);
       ArrayList<SootClass> topCaller = new ArrayList<>();
       Local topCallerLocal = findCaller(s, receiver,new ArrayList<SootClass>(hier.applicationActivityClasses));
       NVarNode receiverNode = varNode(topCallerLocal);
+      Logger.verb("ProcessFragment","[Flowgraph] Top Caller: "+ topCallerLocal.getType().toString());
       recordedReplaceFragmentCalls.put(s, receiverNode);
       return true;
     }
@@ -5369,6 +5376,7 @@ public class Flowgraph implements MethodNames {
       if (returnValueNode != null)
       {
         fragmentsReturnViewMap.put(c, returnValueNode);
+        Logger.verb("ProcessFragment", "Return view: " + returnValueNode);
         return returnValueNode;
       }
     }
@@ -5447,7 +5455,7 @@ public class Flowgraph implements MethodNames {
     Logger.verb(this.getClass().getSimpleName(), ie.toString());
     Local rev = jimpleUtil.receiver(ie);
     SootClass receiverClass = ((RefType)((NVarNode)parentLocalNode).l.getType()).getSootClass();
-    Logger.verb("DEBUG","ReceiverClass: "+receiverClass.getName());
+    Logger.verb("ProcessFragment","ReceiverClass: "+receiverClass.getName());
     Value layoutIdVal = null;
     Local fragment = null;
     if (transaction1Add1Match || transaction1Add3Match
@@ -5475,7 +5483,7 @@ public class Flowgraph implements MethodNames {
       {
         continue;
       }
-      Logger.verb("DEBUG","Derived class: "+c.getName());
+      Logger.verb("ProcessFragment","Derived class: "+c.getName());
       ArrayList<Pair<SootMethod, Value>> topPassArguments = new ArrayList<>();
       //find the top pass argument for fragment value-> return list of Pair<SootMethod, Value>
       processTopPassArguments(c, caller, fragment,s, topPassArguments);
@@ -5497,11 +5505,12 @@ public class Flowgraph implements MethodNames {
         addFragment = new NAddFragmentOpNode(layoutIdNode, fragmentNode, parentReceiverNode, callSite, false );
         SootClass fragmentClass = ((RefType) item.getO2().getType()).getSootClass();
         fragmentNode(fragmentClass);
-        Logger.verb(this.getClass().getSimpleName(), "AddFragmentOpNode created: "+ caller.getDeclaringClass() + " -> " + fragmentClass
+        Logger.verb("ProcessFragment", "AddFragmentOpNode created: "+ caller.getDeclaringClass() + " -> " + fragmentClass
                 + " -> " + layoutIdNode.toString() + " -> " + c.getName());
         //FindViewById + AddView
         NVarNode fragmentViewNode = fragmentsReturnViewMap.get(fragmentClass);
-        Logger.verb("DEBUG", "Return view: "+fragmentViewNode);
+        Logger.verb("ProcessFragment", "Return view: "+fragmentViewNode);
+        activityNode(c).addEdgeTo(fragmentNode(fragmentClass));
         if (fragmentViewNode != null)
         {
           String fakeLocalName = nextFakeName();
@@ -5510,7 +5519,8 @@ public class Flowgraph implements MethodNames {
           allNNodes.add(findViewNode);
           NAddView2OpNode addView2OpNode = new NAddView2OpNode(parentLayoutNode, fragmentViewNode, null, true);
           allNNodes.add(addView2OpNode);
-          Logger.verb("DEBUG", "AddView2OpNode: "+addView2OpNode);
+
+          Logger.verb("ProcessFragment", "AddView2OpNode: "+addView2OpNode);
         }
 
         //Integrate Options Menu
@@ -5608,7 +5618,7 @@ public class Flowgraph implements MethodNames {
       {
         break;
       }
-      if (u instanceof DefinitionStmt || u instanceof AssignStmt)
+      if (u instanceof DefinitionStmt)
       {
         DefinitionStmt stmt = (DefinitionStmt) u;
         if (stmt.getLeftOp() == checkValue)
@@ -5617,16 +5627,39 @@ public class Flowgraph implements MethodNames {
         }
       }
     }
-    if (assignStmtList.isEmpty())
+    if (assignStmtList.isEmpty()) {
+      Logger.verb("ProcessFragment",String.format("Value %s",checkValue));
+      topPassArgumentResults.add(new Pair(caller, checkValue));
       return false;
+    }
     Stmt lastAssignStmt = assignStmtList.get(assignStmtList.size()-1);
     if (lastAssignStmt.containsInvokeExpr())
     {
-      //Logger.verb("DEBUG",String.format("Value %s is return by invoking method %s",checkValue,lastAssignStmt.getInvokeExpr().getMethod()));
+      Logger.verb("ProcessFragment",String.format("Value %s is return by invoking method %s",checkValue,lastAssignStmt.getInvokeExpr().getMethod()));
       processReturnValue(activityClass, caller, lastAssignStmt.getInvokeExpr().getMethod(),s,topPassArgumentResults);
       return true;
     }
-    topPassArgumentResults.add(new Pair(caller, checkValue));
+    else
+    {
+      Logger.verb("ProcessFragment",String.format("Value %s is assigned in %s",checkValue,lastAssignStmt.toString()));
+      Value rv = ((DefinitionStmt)lastAssignStmt).getRightOp();
+      if (rv instanceof Expr)
+      {
+        processTopPassArguments(activityClass,caller,((JCastExpr) rv).getOp(),lastAssignStmt,topPassArgumentResults);
+      }
+      else
+      {
+        if (rv instanceof Local)
+          processTopPassArguments(activityClass,caller,rv,lastAssignStmt,topPassArgumentResults);
+        else
+        {
+          Logger.verb("ProcessFragment",String.format("Value %s",checkValue));
+          topPassArgumentResults.add(new Pair(caller, checkValue));
+          return false;
+        }
+      }
+    }
+
     return false;
   }
 
@@ -5715,7 +5748,7 @@ public class Flowgraph implements MethodNames {
       return null;
     Local rev = jimpleUtil.receiver(ie);
     SootClass receiverClass = ((RefType)((NVarNode)parentLocalNode).l.getType()).getSootClass();
-    Logger.verb("DEBUG","ReceiverClass: "+receiverClass.getName());
+    Logger.verb("ProcessFragment","ReceiverClass: "+receiverClass.getName());
 
     Value layoutIdVal = null;
     Local fragment = null;
@@ -5736,7 +5769,7 @@ public class Flowgraph implements MethodNames {
       {
         continue;
       }
-      Logger.verb("DEBUG","Derived class: "+c.getName());
+      Logger.verb("ProcessFragment","Derived class: "+c.getName());
       ArrayList<Pair<SootMethod, Value>> topPassArguments = new ArrayList<>();
       //find the top pass argument for fragment value-> return list of Pair<SootMethod, Value>
       processTopPassArguments(c, caller, fragment,s, topPassArguments);
@@ -5758,11 +5791,12 @@ public class Flowgraph implements MethodNames {
         replaceFragment = new NReplaceFragmentOpNode(layoutIdNode, fragmentNode, parentReceiverNode, callSite, false );
         SootClass fragmentClass = ((RefType) item.getO2().getType()).getSootClass();
         fragmentNode(fragmentClass);
-        Logger.verb(this.getClass().getSimpleName(), "ReplaceFragmentOpNode created: "+ caller.getDeclaringClass() + " -> " + fragmentClass
+        Logger.verb("ProcessFragment", "ReplaceFragmentOpNode created: "+ caller.getDeclaringClass() + " -> " + fragmentClass
                 + " -> " + layoutIdNode.toString() + " -> " + c.getName());
         //FindViewById + AddView
         NVarNode fragmentViewNode = fragmentsReturnViewMap.get(fragmentClass);
-        Logger.verb("DEBUG", "Return view: "+fragmentViewNode);
+        Logger.verb("ProcessFragment", "Return view: "+fragmentViewNode);
+        activityNode(c).addEdgeTo(fragmentNode(fragmentClass));
         if (fragmentViewNode != null)
         {
           String fakeLocalName = nextFakeName();
@@ -5771,7 +5805,8 @@ public class Flowgraph implements MethodNames {
           allNNodes.add(findViewNode);
           NAddView2OpNode addView2OpNode = new NAddView2OpNode(parentLayoutNode, fragmentViewNode, null, true);
           allNNodes.add(addView2OpNode);
-          Logger.verb("DEBUG", "AddView2OpNode: "+addView2OpNode);
+
+          Logger.verb("ProcessFragment", "AddView2OpNode: "+addView2OpNode);
         }
 
         //Integrate Options Menu
@@ -5785,12 +5820,13 @@ public class Flowgraph implements MethodNames {
   }
   String fragmentOnCreateView1 = "<android.support.v4.app.Fragment: android.view.View onCreateView(android.view.LayoutInflater,android.view.ViewGroup,android.os.Bundle)>";
   String fragmentOnCreateView2 = "<android.app.Fragment: android.view.View onCreateView(android.view.LayoutInflater,android.view.ViewGroup,android.os.Bundle)>";
+  String fragmentOnCreateView3 = "<androidx.app.Fragment: android.view.View onCreateView(android.view.LayoutInflater,android.view.ViewGroup,android.os.Bundle)>";
   String onCreateView = "android.view.View onCreateView(android.view.LayoutInflater,android.view.ViewGroup,android.os.Bundle)";
   Map<NNode, SootClass> allFragmentLayoutsMap= Maps.newHashMap();
   Map<NVarNode, SootClass> inflateViewsAndFragmentMap = Maps.newHashMap();
   Map<SootClass, NVarNode> fragmentsReturnViewMap = Maps.newHashMap();
 
-  public void processFragmentClass(SootClass fragmentClass)
+/*  public void processFragmentClass(SootClass fragmentClass)
   {
     if (fragmentClass.isAbstract())
       return;
@@ -5806,7 +5842,7 @@ public class Flowgraph implements MethodNames {
       //
     }
 
-  }
+  }*/
   //Deal with ViewPager and Fragment
   final SootClass viewPagerClass = Scene.v().getSootClass("android.support.v4.view.ViewPaper");
   final SootClass FragmentPagerAdapter = Scene.v().getSootClass("android.support.v4.app.FragmentPagerAdapter");

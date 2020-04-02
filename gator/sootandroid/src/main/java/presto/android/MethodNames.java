@@ -36,6 +36,9 @@ public interface MethodNames {
 
   String findViewByIdSubSig = "android.view.View findViewById(int)";
 
+  //Deal with Kotlin Android Extension
+  String findCachedViewByIdSubSig = "android.view.View _$_findCachedViewById(int)";
+
   String setIdSubSig = "void setId(int)";
 
   String addViewName = "addView";

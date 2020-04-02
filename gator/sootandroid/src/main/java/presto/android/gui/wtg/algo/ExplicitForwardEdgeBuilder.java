@@ -109,6 +109,7 @@ public class ExplicitForwardEdgeBuilder implements Algorithm {
     for (NObjectNode window : guiHierarchy.keySet()) {
       if (window instanceof NActivityNode) {
         /********************** if window is activity ****************************/
+        Logger.verb("buildExplicitForwardEdges", window.toString());
         buildActivityForwardEdges(newEdges, wtg, window, analyzeOutput,
                 guiHierarchy, viewToHandlers);
       } else if (window instanceof NDialogNode || window instanceof NMenuNode) {
@@ -137,18 +138,22 @@ public class ExplicitForwardEdgeBuilder implements Algorithm {
     /****************************************************************************/
     /****************************************************************************/
     /****************************************************************************/
+    Logger.verb(this.getClass().getSimpleName(), "AnalyzeCallback");
     Set<CFGAnalyzerInput> inputSet = Sets.newHashSet();
     for (NObjectNode window : guiHierarchy.keySet()) {
-      if (!(window instanceof NActivityNode
+        if (!(window instanceof NActivityNode
               || window instanceof NDialogNode
               || window instanceof NMenuNode)) {
         Logger.err(getClass().getSimpleName(), "unexpected window type: " + window);
       }
+        Logger.verb("AnalyzeCallback", window.toString());
       Collection<NObjectNode> underneathViews = guiHierarchy.get(window);
+      Logger.verb("AnalyzeCallback", "getting guiHierachy");
       Set<NObjectNode> allViews = Sets.newHashSet(underneathViews);
       // allViews.add(window);
       for (NObjectNode view : allViews) {
-        for (HandlerBean bean : viewToHandlers.get(view)) {
+          Logger.verb("AnalyzeCallback", view.toString());
+          for (HandlerBean bean : viewToHandlers.get(view)) {
           for (SootMethod handler : bean.getHandlers()) {
             // we should get the real gui widget here instead of using
             // "view" because we treat "onCreateOptionsMenu" specially
@@ -487,7 +492,8 @@ public class ExplicitForwardEdgeBuilder implements Algorithm {
     // specify the stmts we are interested: showDialog, startActivity and
     // openMenu
     for (NObjectNode view : allViews) {
-      for (HandlerBean bean : viewToHandlers.get(view)) {
+      Logger.verb("buildExplicitForwardEdges", view.toString() );
+        for (HandlerBean bean : viewToHandlers.get(view)) {
         NObjectNode guiWidget = bean.getGUIWidget();
         EventType event = bean.getEvent();
         boolean avoid = true;
