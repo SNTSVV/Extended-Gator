@@ -74,8 +74,8 @@ public class ConstantAnalysis {
     //Debug end
     //New feature
     Pair<NObjectNode, SootMethod> key = new Pair<NObjectNode, SootMethod>(guiObject, handler);
-    VarUtil.v().infeasibleEdgesMap.put(key, infeasibleEdges);
-    VarUtil.v().infeasibleCallsMap.put(key, infeasibleCalls);
+//    VarUtil.v().infeasibleEdgesMap.put(key, infeasibleEdges);
+//    VarUtil.v().infeasibleCallsMap.put(key, infeasibleCalls);
     //End new feature
 
     reset();
