@@ -359,8 +359,13 @@ public class DefaultXMLParser extends AbstractXMLParser {
           String eleName = n.getNodeName();
           if ("activity".equals(eleName) || "activity-alias".equals(eleName)) {
             NamedNodeMap m = n.getAttributes();
-            String cls = Helper.getClassName(m.getNamedItemNS(ANDROID_NS, "name")
+            String cls;
+            if ("activity".equals(eleName) )
+              cls = Helper.getClassName(m.getNamedItemNS(ANDROID_NS, "name")
                     .getTextContent(), appPkg);
+            else
+              cls = Helper.getClassName(m.getNamedItemNS(ANDROID_NS, "targetActivity")
+                      .getTextContent(), appPkg);
             if (cls == null) {
               continue;
             }
@@ -497,7 +502,7 @@ public class DefaultXMLParser extends AbstractXMLParser {
   }
 
   private boolean isMainActivity(Node node) {
-    assert "activity".equals(node.getNodeName());
+    assert "activity".equals(node.getNodeName()) || "activity-alias".equals(node.getNodeName());
     NodeList list = node.getChildNodes();
     for (int i = 0; i < list.getLength(); i++) {
       Node n = list.item(i);
