@@ -15,20 +15,26 @@ import presto.android.MethodNames
 import presto.android.gui.GUIAnalysisOutput
 import presto.android.gui.clients.regression.ComponentRelationCalculation
 import presto.android.gui.clients.regression.GUIUserInteractionClient
+import presto.android.gui.graph.NActivityNode
 import presto.android.gui.graph.NVarNode
 import presto.android.gui.wtg.ds.WTGEdge
 import soot.*
 import soot.jimple.*
+import soot.jimple.internal.JInvokeStmt
 import soot.jimple.toolkits.callgraph.CallGraph
 import soot.jimple.toolkits.callgraph.Sources
 import java.util.*
 import kotlin.collections.ArrayList
+import kotlin.collections.HashMap
+import kotlin.collections.HashSet
 
 class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
                       val meaningfulEventHandlers: List<String>,
                       val widgetEvents: HashMap<String, ArrayList<WTGEdge>>,
                       val notAppearInTargetCallingMethods: ArrayList<String>,
-                      val topCallingModifiedMethods: HashMap<String, ArrayList<String>>) {
+                      val topCallingModifiedMethods: HashMap<String, ArrayList<String>>,
+                      val implicitIntentActivities: Set<SootClass>,
+                      val intentCallingMethods: HashMap<String, HashSet<SootClass>>) {
     //For debug
     val debugCallback = "<com.eleybourn.bookcatalogue.utils.StorageUtils: void sendDebugInfo(android.content.Context,com.eleybourn.bookcatalogue.CatalogueDBAdapter)>"
     var callbackDebug = false
@@ -88,6 +94,16 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
                     addTopCallingMethod(modMethod.signature,it, topCallingModifiedMethods)
                     addTopCallingMethod(modMethod.signature, it, cacheTopCallingMethods)
                 }
+                if (intentCallingMethods.containsKey(callback.signature))
+                {
+                    if (intentCallingMethods.containsKey(modMethod.signature))
+                    {
+                        intentCallingMethods[modMethod.signature]!!.addAll(intentCallingMethods[callback.signature]!!)
+                    }
+                    else {
+                        intentCallingMethods.put(modMethod.signature, intentCallingMethods[callback.signature]!!)
+                    }
+                }
                 return true
 //                Logger.verb("DEBUG", "Top calling method of ${modMethod.signature} is got from ${callback.signature}")
             }
@@ -110,6 +126,29 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
         }
         var topCallingPointFound: Boolean = false
 
+        if (isContainsGetIntent(callback))
+        {
+            Logger.verb("GetIntent", "Callback: ${callback.signature}")
+            val outerClass:SootClass = getMostOuterClass(callback.declaringClass)
+            if (GUIUserInteractionClient.guiAnalysisOutput!!.flowgraph.hier.isActivityClass(outerClass))
+            {
+                Logger.verb("GetIntent", "Activity: ${outerClass.name}")
+                if (implicitIntentActivities.contains(outerClass))
+                {
+                    Logger.verb("GetIntent", "Process implicit intent: ${outerClass.name}")
+                    if (!intentCallingMethods.containsKey(callback.signature))
+                    {
+                        intentCallingMethods.put(callback.signature, HashSet() )
+                    }
+                    intentCallingMethods[callback.signature]!!.add(outerClass)
+                    if (!intentCallingMethods.containsKey(modMethod.signature))
+                    {
+                        intentCallingMethods.put(modMethod.signature, HashSet() )
+                    }
+                    intentCallingMethods[modMethod.signature]!!.add(outerClass)
+                }
+            }
+        }
 
         val eventHandlers = getEventHandlers(callback.signature)
         if (eventHandlers.size>0)
@@ -298,6 +337,41 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
             }
         }
         return topCallingPointFound
+    }
+
+    private fun getMostOuterClass(declaringClass: SootClass): SootClass {
+        var c = declaringClass
+        while (c.hasOuterClass())
+        {
+            c = c.outerClass
+        }
+        return c
+    }
+
+    private fun isContainsGetIntent(callback: SootMethod): Boolean {
+        if (!callback.hasActiveBody())
+            return false
+        val iterator = callback.activeBody.units.snapshotIterator()
+        while (iterator.hasNext())
+        {
+            val stm = iterator.next()
+            if (stm is JInvokeStmt)
+            {
+                if (stm.invokeExpr.method.subSignature.contains("getIntent"))
+                {
+                    return true
+                }
+            }
+            else if (stm is DefinitionStmt)
+            {
+                if (stm.containsInvokeExpr())
+                    if (stm.invokeExpr.method.subSignature.contains("getIntent"))
+                    {
+                        return true
+                    }
+            }
+        }
+        return false
     }
 
     private fun isApplicationGUIClass(declaringClass: SootClass?): Boolean {

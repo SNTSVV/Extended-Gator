@@ -41,7 +41,7 @@ import java.util.*;
 public class DefaultXMLParser extends AbstractXMLParser {
 
   private static final String ANDROID_NS = "http://schemas.android.com/apk/res/android";
-  private IntentFilterManager intentFilterManager = IntentFilterManager.v();
+  public IntentFilterManager intentFilterManager = IntentFilterManager.v();
 
   @Override
   public Integer getSystemRIdValue(String idName) {

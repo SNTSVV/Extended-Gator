@@ -74,8 +74,8 @@ public class ConstantAnalysis {
     //Debug end
     //New feature
     Pair<NObjectNode, SootMethod> key = new Pair<NObjectNode, SootMethod>(guiObject, handler);
-//    VarUtil.v().infeasibleEdgesMap.put(key, infeasibleEdges);
-//    VarUtil.v().infeasibleCallsMap.put(key, infeasibleCalls);
+    VarUtil.v().infeasibleEdgesMap.put(key, infeasibleEdges);
+    VarUtil.v().infeasibleCallsMap.put(key, infeasibleCalls);
     //End new feature
 
     reset();
@@ -89,11 +89,15 @@ public class ConstantAnalysis {
     if (guiLocal == null) {
       return;
     }
+
     // first resolve the const values for reference locals
+//    Logger.verb("ConstantAnalysis", "Start constRefFixPoint");
     constRefFixPoint(guiObject, guiLocal, handler);
     // use the const reference propagation result to help resolve int locals
+//    Logger.verb("ConstantAnalysis", "Start constRefIntFixPoint");
     constRefIntFixPoint(guiObject, handler);
     // identify infeasible edges
+//    Logger.verb("ConstantAnalysis", "Start detectInfeasibleEdge");
     detectInfeasibleEdge(handler, infeasibleEdges, infeasibleCalls);
   }
 
@@ -119,7 +123,9 @@ public class ConstantAnalysis {
 
   private void constRefFixPoint(NObjectNode guiObject, Local guiLocal, SootMethod handler) {
     List<Local> workList = Lists.newArrayList();
+    //Logger.verb("constRefFixPoint", "Start beforeRefFixPoint");
     beforeRefFixPoint(guiObject, guiLocal, handler, workList);
+    //Logger.verb("constRefFixPoint", "Start doRefFixPoint");
     doRefFixPoint(workList);
   }
 
@@ -129,8 +135,12 @@ public class ConstantAnalysis {
     addToJump(guiLocal, guiLocal);
     List<SootMethod> reachableMethods = Lists.newArrayList(handler);
     Set<SootMethod> memberSet = Sets.newHashSet(handler);
+    List<Integer> methodDepth = Lists.newArrayList(0);
+    int depth = 5;
     while (!reachableMethods.isEmpty()) {
       SootMethod mtd = reachableMethods.remove(0);
+      int currentDepth = methodDepth.remove(0);
+      //Logger.verb("beforeRefFixPoint", "reachableMethod: "+mtd.getSignature());
       Body body = null;
       synchronized (mtd) {
         body = mtd.retrieveActiveBody();
@@ -214,8 +224,11 @@ public class ConstantAnalysis {
           }
         }
       }
+      if (currentDepth == depth)
+        continue;
       // add callees
-      addReachableCall(mtd, null, memberSet, reachableMethods);
+      addReachableCall(mtd, null, memberSet, reachableMethods,methodDepth,currentDepth);
+
     }
   }
 
@@ -315,8 +328,13 @@ public class ConstantAnalysis {
                                     HashMultimap<Stmt, SootMethod> infeasibleCalls) {
     Set<SootMethod> memberSet = Sets.newHashSet(handler);
     List<SootMethod> workList = Lists.newArrayList(handler);
+    List<Integer> methodDepth = Lists.newArrayList(0);
+    int depth = 5;
     while (!workList.isEmpty()) {
       SootMethod mtd = workList.remove(0);
+      int currentDepth = methodDepth.remove(0);
+      if (currentDepth == depth)
+        continue;
       Body body = null;
       UnitGraph cfg = null;
       synchronized (mtd) {
@@ -326,7 +344,7 @@ public class ConstantAnalysis {
       Iterator<Unit> stmts = body.getUnits().iterator();
       while (stmts.hasNext()) {
         Stmt s = (Stmt) stmts.next();
-        Set<SootMethod> escapedCallees = addReachableCall(null, s, memberSet, workList);
+        Set<SootMethod> escapedCallees = addReachableCall(null, s, memberSet, workList,methodDepth, currentDepth);
         infeasibleCalls.putAll(s, escapedCallees);
         if (!(s instanceof IfStmt) && !(s instanceof TableSwitchStmt)
                 && !(s instanceof LookupSwitchStmt)) {
@@ -355,8 +373,12 @@ public class ConstantAnalysis {
   private void beforeRefIntFixPoint(NObjectNode guiObject, SootMethod handler, List<Local> workList, Set<Stmt> interestedStmts) {
     List<SootMethod> reachableMethods = Lists.newArrayList(handler);
     Set<SootMethod> memberSet = Sets.newHashSet(handler);
+    List<Integer> methodDepth = Lists.newArrayList(0);
+    int depth = 5;
     while (!reachableMethods.isEmpty()) {
       SootMethod mtd = reachableMethods.remove(0);
+      int currentDepth = methodDepth.remove(0);
+      int reachableMethodSize = reachableMethods.size();
       Body body = null;
       synchronized (mtd) {
         body = mtd.retrieveActiveBody();
@@ -531,8 +553,10 @@ public class ConstantAnalysis {
           }
         }
       }
+      if (currentDepth == depth)
+        continue;
       // add callees
-      addReachableCall(mtd, null, memberSet, reachableMethods);
+      addReachableCall(mtd, null, memberSet, reachableMethods,methodDepth,currentDepth);
     }
   }
 
@@ -1553,7 +1577,7 @@ public class ConstantAnalysis {
     }
   }
 
-  private Set<SootMethod> addReachableCall(SootMethod mtd, Stmt s, Set<SootMethod> memberSet, List<SootMethod> reachableMethods) {
+  private Set<SootMethod> addReachableCall(SootMethod mtd, Stmt s, Set<SootMethod> memberSet, List<SootMethod> reachableMethods, List<Integer> depths, int currentDepth) {
     Preconditions.checkArgument((mtd != null && s == null) || (mtd == null && s != null));
     Set<SootMethod> infeasibleCallees = Sets.newHashSet();
     Set<Edge> outgoings = null;
@@ -1573,7 +1597,7 @@ public class ConstantAnalysis {
           if (solution != null && solution != ANY && solution instanceof NObjectNode) {
             SootClass type = ((NObjectNode) solution).getClassType();
             if (type == null) {
-              // if we can not find the type for solution, set it to any
+                // if we can not find the type for solution, set it to any
               Logger.err(getClass().getSimpleName(), "can not find the type of solution: " + solution);
             }
             if (type.isConcrete()) {
@@ -1583,6 +1607,7 @@ public class ConstantAnalysis {
               if (tgt != null && tgt.getDeclaringClass().isApplicationClass()
                       && tgt.isConcrete() && memberSet.add(tgt)) {
                 reachableMethods.add(tgt);
+                depths.add(currentDepth+1);
               } else {
                 infeasibleCallees.add(tgt);
               }
@@ -1595,6 +1620,7 @@ public class ConstantAnalysis {
               && outgoing.target.isConcrete()
               && memberSet.add(outgoing.target)) {
         reachableMethods.add(outgoing.target);
+        depths.add(currentDepth+1);
       } else {
         infeasibleCallees.add(outgoing.target);
       }

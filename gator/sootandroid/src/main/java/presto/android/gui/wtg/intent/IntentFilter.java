@@ -43,8 +43,8 @@ public class IntentFilter {
     this.mCategories = Sets.newHashSet();
     this.mDataSchemes = Sets.newHashSet();
     this.mDataTypes = Sets.newHashSet();
-    this.mDataAuthorities = Lists.newArrayList();
-    this.mDataPaths = Lists.newArrayList();
+    this.setDataAuthorities(Lists.newArrayList());
+    this.setDataPaths(Lists.newArrayList());
   }
 
   public void addAction(String action) {
@@ -67,7 +67,7 @@ public class IntentFilter {
     }
     // intent filter should also defines no data related fields
     if (!mDataTypes.isEmpty() || !mDataSchemes.isEmpty()
-            || !mDataPaths.isEmpty() || !mDataAuthorities.isEmpty()) {
+            || !getDataPaths().isEmpty() || !getDataAuthorities().isEmpty()) {
       return false;
     }
 
@@ -138,11 +138,11 @@ public class IntentFilter {
         return false;
       }
       // there should be a lot of checks here
-      final List<AuthorityEntry> authorities = mDataAuthorities;
+      final List<AuthorityEntry> authorities = getDataAuthorities();
       if (!authorities.isEmpty()) {
         boolean authMatch = matchDataAuthority(intentInfo);
         if (authMatch) {
-          final List<PatternMatcher> paths = mDataPaths;
+          final List<PatternMatcher> paths = getDataPaths();
           if (paths.isEmpty()) {
             match = authMatch;
           } else if (hasDataPath(intentInfo.getData(IntentField.Path))) {
@@ -177,12 +177,12 @@ public class IntentFilter {
   }
 
   private final boolean hasDataPath(Set<String> paths) {
-    if (mDataPaths == null || mDataPaths.isEmpty()) {
+    if (getDataPaths() == null || getDataPaths().isEmpty()) {
       return false;
     }
-    final int numDataPaths = mDataPaths.size();
+    final int numDataPaths = getDataPaths().size();
     for (int i = 0; i < numDataPaths; i++) {
-      final PatternMatcher pe = mDataPaths.get(i);
+      final PatternMatcher pe = getDataPaths().get(i);
       for (String path : paths) {
         if (path.equals(IntentAnalysisInfo.Any) || pe.match(path)) {
           return true;
@@ -193,12 +193,12 @@ public class IntentFilter {
   }
 
   private final boolean matchDataAuthority(IntentAnalysisInfo intentInfo) {
-    if (mDataAuthorities == null) {
+    if (getDataAuthorities() == null) {
       return false;
     }
-    final int numDataAuthorities = mDataAuthorities.size();
+    final int numDataAuthorities = getDataAuthorities().size();
     for (int i = 0; i < numDataAuthorities; i++) {
-      final AuthorityEntry ae = mDataAuthorities.get(i);
+      final AuthorityEntry ae = getDataAuthorities().get(i);
       boolean match = ae.match(intentInfo);
       if (match) {
         return match;
@@ -266,7 +266,7 @@ public class IntentFilter {
   }
 
   private final void addDataPath(PatternMatcher path) {
-    mDataPaths.add(path);
+    getDataPaths().add(path);
   }
 
   public final void addDataType(String type) {
@@ -294,7 +294,7 @@ public class IntentFilter {
   }
 
   public final void addDataAuthority(AuthorityEntry ent) {
-    mDataAuthorities.add(ent);
+    getDataAuthorities().add(ent);
   }
 
   public final void addDataScheme(String scheme) {
@@ -309,18 +309,37 @@ public class IntentFilter {
     return mCategories;
   }
 
+  public Set<String> getDataTypes() { return mDataTypes;}
+
+  public Set<String> getDataSchemes() {return mDataSchemes;}
   @Override
   public String toString() {
     String str = "actions: " + mActions;
     str += "; categories: " + mCategories;
     str += "; schemes: " + mDataSchemes;
     str += "; types: " + mDataTypes;
-    str += "; authorities: " + mDataAuthorities;
+    str += "; authorities: " + getDataAuthorities();
     return str;
   }
 
   public boolean isLauncherFilter() {
     return mActions.contains(WTGUtil.v().launcherAction) && mCategories.contains(WTGUtil.v().launcherCategory);
+  }
+
+  public List<PatternMatcher> getDataPaths() {
+    return mDataPaths;
+  }
+
+  public void setDataPaths(List<PatternMatcher> mDataPaths) {
+    this.mDataPaths = mDataPaths;
+  }
+
+  public List<AuthorityEntry> getDataAuthorities() {
+    return mDataAuthorities;
+  }
+
+  public void setDataAuthorities(List<AuthorityEntry> mDataAuthorities) {
+    this.mDataAuthorities = mDataAuthorities;
   }
 
   public final static class AuthorityEntry {

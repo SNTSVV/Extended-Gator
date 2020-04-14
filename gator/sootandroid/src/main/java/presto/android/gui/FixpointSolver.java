@@ -22,7 +22,10 @@ import presto.android.gui.listener.ListenerSpecification;
 import presto.android.xml.AndroidView;
 import presto.android.xml.XMLParser;
 import soot.*;
+import soot.jimple.AssignStmt;
+import soot.jimple.FieldRef;
 import soot.jimple.Jimple;
+import soot.jimple.Stmt;
 
 import java.util.*;
 
@@ -179,7 +182,7 @@ public class FixpointSolver {
     optionsMenuReachability();
     contextMenuReachability();
     viewIdReachability();
-    fieldReachabilty();
+    //fieldReachabilty();
 
     if (Configs.enableStringAppendAnalysis && Configs.enableStringPropertyAnalysis) {
       Logger.trace(TAG, "start string append analysis...");
@@ -638,54 +641,55 @@ public class FixpointSolver {
   }
 
   void fieldReachabilty(){
-    HashMap<NFieldNode, HashSet<NNode>> fieldAssigments = new HashMap<>();
+    HashMap<NFieldNode, HashSet<NOpNode>> fieldAssigments = new HashMap<>();
     HashMap<NFieldNode, HashSet<NSetListenerOpNode>> fieldOpReceivers = new HashMap<>();
+    for (NNode opNode: flowgraph.allNNodes)
+    {
+      if (!((opNode instanceof NFindView1OpNode) || (opNode instanceof NFindView2OpNode) || (opNode instanceof  NFindView3OpNode)))
+        continue;
+      for (NNode reachable : graphUtil.reachableNodes(opNode))
+      {
+        if (reachable instanceof  NFieldNode && ((NFieldNode) reachable).f.getType() instanceof RefType)
+        {
+          SootClass fieldType = ((RefType) ((NFieldNode) reachable).f.getType()).getSootClass();
+          if (!hier.isGUIClass(fieldType))
+            continue;
+          if (!fieldAssigments.containsKey(reachable))
+            fieldAssigments.put((NFieldNode) reachable, new HashSet<>());
+          if (!fieldOpReceivers.containsKey(reachable))
+            fieldOpReceivers.put((NFieldNode) reachable, new HashSet<>());
+          HashSet<NOpNode> assigments =fieldAssigments.get(reachable);
+          assigments.add((NOpNode) opNode);
+        }
+      }
+    }
+
     for (NFieldNode fieldNode: flowgraph.allNFieldNodes.values())
     {
+        SootClass declaringClass = fieldNode.f.getDeclaringClass();
         //Do not process fields of R$ classes because they were processed before
         if ( fieldNode.f.getDeclaringClass().getName().contains("R$") )
           continue;
+        if (declaringClass.getName()=="androidx.fragment.app.Fragment"
+        || declaringClass.getName()=="android.support.v4.app.Fragment"
+        || declaringClass.getName()=="android.app.Fragment")
+          continue;
         if (!(fieldNode.f.getType() instanceof RefType))
           continue;
-        if (!hier.isGUIClass(((RefType) fieldNode.f.getType()).getSootClass()))
+        SootClass fieldType = ((RefType) ((NFieldNode) fieldNode).f.getType()).getSootClass();
+        if (!hier.isGUIClass(fieldType))
           continue;
-        if (!fieldAssigments.containsKey(fieldNode))
-          fieldAssigments.put(fieldNode, new HashSet<>());
         if (!fieldOpReceivers.containsKey(fieldNode))
           fieldOpReceivers.put(fieldNode, new HashSet<>());
-        HashSet<NNode> assigments =fieldAssigments.get(fieldNode);
         HashSet<NSetListenerOpNode> ops = fieldOpReceivers.get(fieldNode);
         Set<NNode> reachables = graphUtil.reachableNodes(fieldNode);
         for (NNode target : reachables) {
-          if (target instanceof NFindView1OpNode
-                  || target instanceof NFindView2OpNode
-                  || target instanceof NFindView3OpNode) {
-            assigments.add(target);
-
-            Logger.verb("ProcessNFieldNode", fieldNode.toString() + " --> Assigned to: " + target.toString());
-          }
-          if ( target instanceof NVarNode)
-          {
-            for (NNode backwardAssignment : graphUtil.allBackwardReachableNodes(target))
-            {
-              if (backwardAssignment != fieldNode && !reachables.contains(backwardAssignment))
-              {
-                assigments.add(backwardAssignment);
-              }
-            }
-            Logger.verb("ProcessNFieldNode",fieldNode.toString() + " --> Assigned to: "+target.toString());
-          }
           if (target instanceof NSetListenerOpNode)
           {
-            ops.add((NSetListenerOpNode) target);
-            Logger.verb("ProcessNFieldNode",fieldNode.toString() + " --> set listener: "+target.toString() + " - lhs: " +((NSetListenerOpNode) target).getReceiver().toString());
-
             if (reachables.contains(((NSetListenerOpNode) target).getReceiver()))
-            {
-
-            }
+              ops.add((NSetListenerOpNode) target);
+              //Logger.verb("ProcessNFieldNode",fieldNode.toString() + " --> set listener: "+target.toString() + " - lhs: " +((NSetListenerOpNode) target).getReceiver().toString());
           }
-
         }
     }
     for (NFieldNode fieldNode: fieldAssigments.keySet())
@@ -694,9 +698,47 @@ public class FixpointSolver {
         continue;
       if (fieldOpReceivers.get(fieldNode).isEmpty())
         continue;
+      HashMap<SootMethod, HashSet<NNode>> assignmentGroupByMethod = new HashMap<>();
+      HashSet<NOpNode> bestSuitAssignment = new HashSet<>();
+      HashMap<Stmt, NOpNode> stmtAssignment = new HashMap<>();
+      for (NOpNode assignment: fieldAssigments.get(fieldNode))
+      {
+        Stmt stmt = assignment.callSite.getO1();
+        SootMethod method = assignment.callSite.getO2();
+        if (!assignmentGroupByMethod.containsKey(method))
+        {
+          assignmentGroupByMethod.put(method, new HashSet());
+        }
+        assignmentGroupByMethod.get(method).add(assignment);
+        stmtAssignment.put(stmt, assignment);
+      }
+
+      for (SootMethod method: assignmentGroupByMethod.keySet() )
+      {
+        //Need to find the last assignment NOpNode
+        Iterator<Unit> units = method.getActiveBody().getUnits().snapshotIterator();
+        Stmt lastStatement = null;
+        while (units.hasNext()){
+          Unit u = units.next();
+          if (u instanceof AssignStmt && ((AssignStmt) u).getLeftOp() instanceof FieldRef)
+          {
+            if (((AssignStmt) u).getFieldRef().getField() == fieldNode.f)
+            {
+              break;
+            }
+          }
+          if (stmtAssignment.containsKey(u))
+          {
+            lastStatement = (Stmt) u;
+          }
+        }
+        if (lastStatement!=null)
+          bestSuitAssignment.add(stmtAssignment.get(lastStatement));
+      }
+
       for (NSetListenerOpNode setListenerNode: fieldOpReceivers.get(fieldNode))
       {
-        for (NNode assignment: fieldAssigments.get(fieldNode))
+        for (NNode assignment: bestSuitAssignment)
         {
           if (assignment instanceof NFindView1OpNode
                   || assignment instanceof NFindView2OpNode
@@ -709,24 +751,6 @@ public class FixpointSolver {
 
             Logger.verb("ProcessNFieldNode", fieldNode.toString() + " --> target: " + assignment.toString() + " --> Receiver: " + setListenerNode.toString());
           }
-          else
-          {
-            for (NNode backwardNode: graphUtil.allBackwardReachableNodes(assignment))
-            {
-              if (backwardNode instanceof NFindView1OpNode
-                      || backwardNode instanceof NFindView2OpNode
-                      || backwardNode instanceof NFindView3OpNode
-              )
-              {
-                ((NOpNode) backwardNode).getLhs()
-                        .addEdgeTo(setListenerNode.getReceiver());
-                ((NOpNode) backwardNode).getLhs()
-                        .addEdgeTo(setListenerNode.getParameter());
-                Logger.verb("ProcessNFieldNode", fieldNode.toString() + " --> target: " + backwardNode.toString() + " --> Receiver: " + setListenerNode.toString());
-              }
-            }
-          }
-
         }
       }
     }
@@ -894,6 +918,7 @@ public class FixpointSolver {
     if (rootSet == null) {
       rootSet = Sets.newHashSet();
       roots.put(window, rootSet);
+      //TODO need process Inline Event here
     }
     rootSet.add(rootView);
   }
@@ -1310,6 +1335,7 @@ public class FixpointSolver {
         continue;
       }
       NInflNode vNode = flowgraph.inflNode(v.getSootClass());
+
       processInlineEventHandlers(vNode, v, rootparent, inflateOpNodeReciever);
       inflationImplicitEffects(vNode);
 
@@ -1359,7 +1385,8 @@ public class FixpointSolver {
       } else if (widgetId != null) {
         throw new RuntimeException();
       }
-
+      if (parent != null && parentContainView(parent, vNode))
+        continue;
       String text = v.getText();
       if (text != null) {
         // FIXME(tony): we have converted the string ahead of time, and string
@@ -1385,6 +1412,28 @@ public class FixpointSolver {
     } // worklist not empty
 
     return rootNode;
+  }
+
+  private boolean parentContainView(NNode parent, NInflNode vNode) {
+    if (parent instanceof NInflNode)
+    {
+      if (((NInflNode) parent).c == vNode.c && parent.idNode == vNode.idNode)
+        return true;
+    }
+    Iterator<NNode> ancestors = parent.getParents();
+    while (ancestors.hasNext())
+    {
+      NNode ancestor = ancestors.next();
+      if (!(ancestor instanceof NInflNode))
+      {
+        continue;
+      }
+      if (((NInflNode) ancestor).c == vNode.c && ancestor.idNode == vNode.idNode)
+      {
+        return true;
+      }
+    }
+    return false;
   }
 
   private Set<SootClass> filterApplicationClasses(Set<SootClass> sootClasses) {
@@ -1433,11 +1482,11 @@ public class FixpointSolver {
     if (inlineClickHandlers.isEmpty())
       return;
     if (!(rootNode instanceof NActivityNode)) {
-      Logger.trace("InLineHandler", "Inline event handler present in " + androidView + " for " +
+      Logger.verb("InLineHandler", "Inline event handler present in " + androidView + " for " +
               rootNode);
       return;
     }
-    Logger.trace("InLineHandler", "Processing inline event handler");
+    Logger.verb("InLineHandler", "Processing inline event handler");
     SootClass activityClass = ((NActivityNode) rootNode).getClassType();
     Scene scene = Scene.v();
     SootClass viewSootClass = scene.getSootClass("android.view.View");
@@ -1445,10 +1494,10 @@ public class FixpointSolver {
       String methodName = eventTypeMethodName.getValue();
       Set<SootClass> classesInHierarchyWithMethod = getClassesInHierarchyWithMethod(activityClass, methodName, viewSootClass.getType());
       if (classesInHierarchyWithMethod.isEmpty()) {
-        Logger.trace("InLineHandler", "Unable to find method " + methodName + " in hierarchy of " +
+        Logger.verb("InLineHandler", "Unable to find method " + methodName + " in hierarchy of " +
                 "Activity " + activityClass);
         if (activityClass.declaresFieldByName(methodName)) {
-          Logger.trace("InLineHandler", "Field found with the same name " + methodName + " in " +
+          Logger.verb("InLineHandler", "Field found with the same name " + methodName + " in " +
                   "Activity " + activityClass);
         }
         return;
@@ -1494,8 +1543,11 @@ public class FixpointSolver {
 
   // Now, we are done with inflation. Let's process other NOpNodes
   void viewAndListenerPropagation() {
-    while (true) {
+    int threshold = 3;
+    int time = 0;
+    while (true && time < threshold) {
       boolean changed = false;
+      time++;
       //Logger.verb("DEBUG","[FixpointSolver] NFindView1OpNode size: "+NOpNode.getNodes(NFindView1OpNode.class).size());
       for (NOpNode findView1 : NOpNode.getNodes(NFindView1OpNode.class)) {
         if (processFindView1((NFindView1OpNode) findView1)) {
@@ -1540,7 +1592,7 @@ public class FixpointSolver {
           changed = true;
         }
       }
-      Logger.verb("DEBUG","[FixpointSolver] NSetListenerOpNode size: "+NOpNode.getNodes(NSetListenerOpNode.class).size());
+      //Logger.verb("DEBUG","[FixpointSolver] NSetListenerOpNode size: "+NOpNode.getNodes(NSetListenerOpNode.class).size());
       // SetListener: need to recompute path summary if anything changes
       for (NOpNode setListener : NOpNode.getNodes(NSetListenerOpNode.class)) {
         if (processSetListener((NSetListenerOpNode) setListener)) {
@@ -1965,25 +2017,25 @@ public class FixpointSolver {
 
   boolean processSetListener(NSetListenerOpNode node) {
     boolean changed = false;
-    Logger.verb("processSetListener",node.toString());
+    //Logger.verb("processSetListener",node.toString());
     Set<NNode> viewSet = solutionReceivers.get(node);
     if (viewSet == null || viewSet.isEmpty()) {
-      Logger.verb("processSetListener","Empty view set.");
+//      Logger.verb("processSetListener","Empty view set.");
       return false;
     }
 
     Set<NNode> listenerSet = solutionListeners.get(node);
     if (listenerSet == null || listenerSet.isEmpty()) {
-      Logger.verb("processSetListener","Empty listener set.");
+//      Logger.verb("processSetListener","Empty listener set.");
       return false;
     }
-    Logger.verb("processSetListener","NSetListernerOpNode: "+ node.toString());
+//    Logger.verb("processSetListener","NSetListernerOpNode: "+ node.toString());
     for (NNode view : viewSet) {
       NObjectNode viewObject = (NObjectNode) view;
-      Logger.verb("processSetListener", "ViewObject: " + viewObject.toString());
+//      Logger.verb("processSetListener", "ViewObject: " + viewObject.toString());
       for (NNode listener : listenerSet) {
         NObjectNode listenerObject = (NObjectNode) listener;
-        Logger.verb("processSetListener", "ViewObject: " + viewObject.toString() + "--> Listener: "+ listenerObject.toString());
+//        Logger.verb("processSetListener", "ViewObject: " + viewObject.toString() + "--> Listener: "+ listenerObject.toString());
         if (flowgraph.processSetListenerOpNode(node, viewObject, listenerObject)) {
           changed = true;
         }

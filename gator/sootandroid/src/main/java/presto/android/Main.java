@@ -143,7 +143,7 @@ public class Main {
 //    Configs.debugCodes.add(Debug.LIST_ADAPTER_DEBUG);
     Configs.debugCodes.add(Debug.LISTENER_DEBUG);
     Configs.debugCodes.add(Debug.WORKLIST_DEBUG);
-      //Configs.workerNum = 10;
+//      Configs.workerNum = 8;
     Configs.clients.add(GUIUserInteractionClient.class.getName());
     Configs.processing();
   }
@@ -218,6 +218,7 @@ public class Main {
               "-p", "cg", "all-reachable:true",
               "-p", "cg.cha", "enabled:true",
               "-p", phaseName, "enabled:true",
+              "-p", "jj.ls", "enabled:true",
               //"-p","jj.a","enabled:false",
               //"-p", "jb.a", "enabled:false",
               //"-p","jb.ls","enabled:false",

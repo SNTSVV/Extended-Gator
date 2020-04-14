@@ -132,8 +132,8 @@ public class Flowgraph implements MethodNames {
     // TabHost, TabSpec...
     processTabHostRelatedCalls();
 
-    processAddFragmentCalls();
-    processReplaceFragmentCalls();
+//    processAddFragmentCalls();
+//    processReplaceFragmentCalls();
 
     processFlowFromSetListenerToEventHandlers();
 
@@ -355,6 +355,15 @@ public class Flowgraph implements MethodNames {
         if (!currentMethod.isConcrete()) {
           continue;
         }
+        /*if (hier.isActivityClass(c))
+        {
+          Logger.verb("PrintMethod", currentMethod.getSignature());
+          Iterator<Unit> printstmts=  currentMethod.retrieveActiveBody().getUnits().snapshotIterator();
+          while (printstmts.hasNext()) {
+            Logger.verb("PrintMethod", printstmts.next().toString());
+          }
+        }*/
+        NNode trackingFieldNode = null;
         numMtd += 1;
         Body b = currentMethod.retrieveActiveBody();
         Iterator<Unit> stmts = b.getUnits().iterator();
@@ -514,6 +523,7 @@ public class Flowgraph implements MethodNames {
             continue;
           }
           NNode nn_lhs = simpleNode(lhs), nn_rhs = simpleNode(rhs);
+
           // record for debugging purpose
           if (nn_rhs instanceof NAllocNode) {
             jimpleUtil.record(((NAllocNode) nn_rhs).e, currentStmt);
@@ -4972,7 +4982,7 @@ public class Flowgraph implements MethodNames {
    */
   public NFragmentNode fragmentNode(SootClass fragmentClass) {
     Preconditions.checkArgument(
-            fragmentClass!=null && !fragmentClass.isAbstract()
+            fragmentClass!=null
     );
     NFragmentNode fragmentNode = allNFragmentNodes.get(fragmentClass);
     if (fragmentNode != null)
@@ -5510,7 +5520,11 @@ public class Flowgraph implements MethodNames {
         //FindViewById + AddView
         NVarNode fragmentViewNode = fragmentsReturnViewMap.get(fragmentClass);
         Logger.verb("ProcessFragment", "Return view: "+fragmentViewNode);
-        activityNode(c).addEdgeTo(fragmentNode(fragmentClass));
+        if (hier.isActivityClass(c))
+          activityNode(c).addEdgeTo(fragmentNode(fragmentClass));
+        else if (hier.isFragmentClass(c))
+          fragmentNode(c).addEdgeTo(fragmentNode(fragmentClass));
+
         if (fragmentViewNode != null)
         {
           String fakeLocalName = nextFakeName();
@@ -5597,7 +5611,7 @@ public class Flowgraph implements MethodNames {
       //Logger.verb("[DEBUG]",String.format("%s is not passed from parameter of %s",checkValue.toString(),caller.getSignature()));
       //check if the value is return by a method
       if (processAssignValue(activityClass, caller, checkValue,s,topPassArgumentResults))
-      {
+        {
         //Logger.verb("[DEBUG]",String.format("%s is assigned by an invoked method",checkValue.toString()));
       }
       else
@@ -5608,8 +5622,19 @@ public class Flowgraph implements MethodNames {
     }
   }
 
-  private Boolean processAssignValue(SootClass activityClass, SootMethod caller, Value checkValue, Stmt s, ArrayList<Pair<SootMethod, Value>> topPassArgumentResults) {
-    Iterator<Unit> i = jimpleUtil.lookup(s).getActiveBody().getUnits().snapshotIterator();
+   Boolean processAssignValue(SootClass activityClass, SootMethod caller, Value checkValue, Stmt s, ArrayList<Pair<SootMethod, Value>> topPassArgumentResults) {
+    if (checkValue instanceof NullConstant)
+    {
+      return false;
+    }
+    if (caller.getDeclaringClass().getName().startsWith("android.")
+    || caller.getDeclaringClass().getName().startsWith("androidx."))
+    {
+      Logger.verb("ProcessFragment",String.format("Value %s",checkValue));
+      topPassArgumentResults.add(new Pair(caller, checkValue));
+      return false;
+    }
+    Iterator<Unit> i = caller.getActiveBody().getUnits().snapshotIterator();
     ArrayList<Stmt> assignStmtList = new ArrayList<>();
     while (i.hasNext())
     {
@@ -5633,17 +5658,17 @@ public class Flowgraph implements MethodNames {
       return false;
     }
     Stmt lastAssignStmt = assignStmtList.get(assignStmtList.size()-1);
-    if (lastAssignStmt.containsInvokeExpr())
+    if (lastAssignStmt.containsInvokeExpr() && lastAssignStmt.getInvokeExpr().getMethod().hasActiveBody())
     {
-      Logger.verb("ProcessFragment",String.format("Value %s is return by invoking method %s",checkValue,lastAssignStmt.getInvokeExpr().getMethod()));
-      processReturnValue(activityClass, caller, lastAssignStmt.getInvokeExpr().getMethod(),s,topPassArgumentResults);
-      return true;
+        Logger.verb("ProcessFragment",String.format("Value %s is return by invoking method %s",checkValue,lastAssignStmt.getInvokeExpr().getMethod()));
+        processReturnValue(activityClass, caller, lastAssignStmt.getInvokeExpr().getMethod(),lastAssignStmt,topPassArgumentResults);
+        return true;
     }
     else
     {
       Logger.verb("ProcessFragment",String.format("Value %s is assigned in %s",checkValue,lastAssignStmt.toString()));
       Value rv = ((DefinitionStmt)lastAssignStmt).getRightOp();
-      if (rv instanceof Expr)
+      if (rv instanceof JCastExpr)
       {
         processTopPassArguments(activityClass,caller,((JCastExpr) rv).getOp(),lastAssignStmt,topPassArgumentResults);
       }
@@ -5685,6 +5710,8 @@ public class Flowgraph implements MethodNames {
     {
       Set<Value> allReturnValues = jimpleUtil.getReturnValues(method);
       for (Value v: allReturnValues){
+        if (v instanceof NullConstant)
+          continue;
         Iterator<Unit> iterator = method.getActiveBody().getUnits().snapshotIterator();
         while (iterator.hasNext()) {
           Unit u = iterator.next();
@@ -5693,10 +5720,7 @@ public class Flowgraph implements MethodNames {
             ReturnStmt returnStmt = (ReturnStmt) u;
             if (returnStmt.getOp() == v)
             {
-              if(!processAssignValue(activityClass, caller,v,returnStmt,topPassArgumentResults))
-              {
-                topPassArgumentResults.add(new Pair<>(caller, v));
-              }
+              processAssignValue(activityClass, caller,v,returnStmt,topPassArgumentResults);
             }
           }
         }
@@ -5796,7 +5820,10 @@ public class Flowgraph implements MethodNames {
         //FindViewById + AddView
         NVarNode fragmentViewNode = fragmentsReturnViewMap.get(fragmentClass);
         Logger.verb("ProcessFragment", "Return view: "+fragmentViewNode);
-        activityNode(c).addEdgeTo(fragmentNode(fragmentClass));
+        if (hier.isActivityClass(c))
+          activityNode(c).addEdgeTo(fragmentNode(fragmentClass));
+        else if(hier.isFragmentClass(c))
+          fragmentNode(c).addEdgeTo(fragmentNode(fragmentClass));
         if (fragmentViewNode != null)
         {
           String fakeLocalName = nextFakeName();

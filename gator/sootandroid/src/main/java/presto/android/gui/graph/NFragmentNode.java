@@ -9,9 +9,17 @@
 
 package presto.android.gui.graph;
 
-public class NFragmentNode extends NWindowNode {
+import soot.SootClass;
+
+public class NFragmentNode extends NObjectNode {
+    public SootClass c;
     @Override
     public String toString() {
         return "FRAG[" + c + "]" + id;
+    }
+
+    @Override
+    public SootClass getClassType() {
+        return c;
     }
 }

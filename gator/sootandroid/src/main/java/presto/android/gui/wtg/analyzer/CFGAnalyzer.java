@@ -252,6 +252,8 @@ public class CFGAnalyzer {
         break;
       }
     }
+
+//    Logger.verb("CFGAnalyzer", "End of analyzeCallbackMethod");
     analyzeResult.targets = targetWindows;
     analyzeResult.avoid = reachToExit;
     return analyzeResult;

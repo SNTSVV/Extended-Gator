@@ -85,8 +85,10 @@ public class ExplicitForwardEdgeBuilder implements Algorithm {
     Multimap<NWindowNode, Pair<NObjectNode, NContextMenuNode>> windowToContextMenus = HashMultimap.create();
 
     // build nodes in wtg
+    Logger.verb(this.getClass().getSimpleName(), "Start buildWTGNodes");
     buildWTGNodes(wtg, guiHierarchy, menuToWindowMap, windowToContextMenus);
     // build edges
+    Logger.verb(this.getClass().getSimpleName(), "Start buildWTGEdges");
     buildWTGEdges(newEdges, wtg, guiHierarchy, menuToWindowMap, windowToContextMenus);
 
     return newEdges;
@@ -148,12 +150,13 @@ public class ExplicitForwardEdgeBuilder implements Algorithm {
       }
         Logger.verb("AnalyzeCallback", window.toString());
       Collection<NObjectNode> underneathViews = guiHierarchy.get(window);
-      Logger.verb("AnalyzeCallback", "getting guiHierachy");
+//      Logger.verb("AnalyzeCallback", "getting guiHierachy");
       Set<NObjectNode> allViews = Sets.newHashSet(underneathViews);
       // allViews.add(window);
       for (NObjectNode view : allViews) {
-          Logger.verb("AnalyzeCallback", view.toString());
+//          Logger.verb("AnalyzeCallback", view.toString());
           for (HandlerBean bean : viewToHandlers.get(view)) {
+//              Logger.verb("AnalyzeCallback", "Handlers: "+bean.getHandlers().size());
           for (SootMethod handler : bean.getHandlers()) {
             // we should get the real gui widget here instead of using
             // "view" because we treat "onCreateOptionsMenu" specially
@@ -169,6 +172,8 @@ public class ExplicitForwardEdgeBuilder implements Algorithm {
         }
       }
     }
+    Logger.verb("AnalyzeCallback", "CFGScheduler begins");
+    Logger.verb("AnalyzeCallback", "InputSet: " + inputSet.size());
     CFGScheduler scheduler = new CFGScheduler(guiOutput, flowgraphRebuilder);
     return scheduler.schedule(inputSet);
   }
@@ -198,9 +203,10 @@ public class ExplicitForwardEdgeBuilder implements Algorithm {
     addEdge(newEdges, newEdge);
 
     // build other forward edges
+    Logger.verb(this.getClass().getSimpleName(), "Start buildWidgetHandlers");
     Multimap<NObjectNode, HandlerBean> widgetToHandlers = buildWidgetHandlers(guiHierarchy,
             menuToWindows, windowToContextMenus);
-
+    Logger.verb(this.getClass().getSimpleName(), "Start buildExplicitForwardEdges");
     buildExplicitForwardEdges(newEdges, wtg, guiHierarchy, widgetToHandlers);
   }
 
@@ -341,6 +347,7 @@ public class ExplicitForwardEdgeBuilder implements Algorithm {
       NObjectNode windowNode = windowNodeList.remove(0);
       // window is in the hierarchy of itself
       guiHierarchy.put(windowNode, windowNode);
+      Logger.verb(this.getClass().getSimpleName(), "Init window: " + windowNode.toString());
       if (windowNode instanceof NActivityNode) {
         SootClass actClass = ((NActivityNode) windowNode).c;
         NOptionsMenuNode optionMenu = guiOutput.getOptionsMenu(actClass);

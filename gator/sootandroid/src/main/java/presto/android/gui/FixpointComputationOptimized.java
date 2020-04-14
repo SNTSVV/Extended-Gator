@@ -94,7 +94,7 @@ public class FixpointComputationOptimized {
                     else if (target instanceof NSetListenerOpNode
                             && reachables.contains(((NSetListenerOpNode) target).getParameter())) {
                         if (source instanceof NOpNode) {
-                            Logger.verb("FixpointOptimized", "ReachedListener: " + source.toString() + "--> "+ target.toString());
+                            //Logger.verb("FixpointOptimized", "ReachedListener: " + source.toString() + "--> "+ target.toString());
 
                             //the result of source could flow to SetListener
                             //If source is NObjectNode, it will be taken care of later.
@@ -121,7 +121,7 @@ public class FixpointComputationOptimized {
                             continue;
                         }
 
-                        Logger.verb("FixpointOptimized", "reachedReceiverViews: " + source.toString() +"--> "+ target.toString());
+                        //Logger.verb("FixpointOptimized", "reachedReceiverViews: " + source.toString() +"--> "+ target.toString());
                         MultiMapUtil.addKeyAndHashSetElement(solver.reachingReceiverViews,
                                 (NOpNode) target, source);
                         if (source instanceof NOpNode) {

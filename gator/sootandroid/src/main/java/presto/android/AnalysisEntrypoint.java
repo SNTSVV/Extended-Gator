@@ -100,6 +100,12 @@ public class AnalysisEntrypoint {
           c.setLibraryClass();
         }
       }
+      else {
+        if (c.getPackageName().equals(""))
+        {
+          c.setLibraryClass();
+        }
+      }
     }
 
 //    Logger.verb("DEBUG", "After loading library packages");

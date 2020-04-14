@@ -32,6 +32,7 @@ public class CFGScheduler {
     this.flowgraphRebuilder = flowgraphRebuilder;
     this.workerPool = new ArrayBlockingQueue<CFGWorker>(Configs.workerNum);
     initializeScheduler();
+    Logger.verb("CFGScheduler", "initializeScheduler");
   }
 
   private void initializeScheduler() {
@@ -48,6 +49,7 @@ public class CFGScheduler {
     // the underline idea is to parallelise analyzeCallbackMethod
     // and leave the rest executed in sequence
     for (CFGAnalyzerInput input : inputs) {
+      //Logger.verb("CFGScheduler", "Start thread for input: "+input.toString());
       CFGWorker worker = null;
       try {
         worker = workerPool.take();
@@ -78,6 +80,7 @@ public class CFGScheduler {
         if (aggregateOutput.containsKey(input)) {
           Logger.err(getClass().getSimpleName(), "cfg analyzer input has been processed: " + input);
         }
+        //Logger.verb("CFGScheduler", "Get output of work for input: "+input.toString());
         CFGAnalyzerOutput output = partialOutput.get(input);
         aggregateOutput.put(input, output);
       }

@@ -28,6 +28,10 @@ import presto.android.gui.wtg.WTGBuilder
 import presto.android.gui.wtg.ds.WTG
 import presto.android.gui.wtg.ds.WTGEdge
 import presto.android.gui.wtg.flowgraph.NLauncherNode
+import presto.android.gui.wtg.intent.IntentAnalysisInfo
+import presto.android.gui.wtg.intent.IntentField
+import presto.android.gui.wtg.intent.IntentFilter
+import presto.android.gui.wtg.intent.IntentFilterManager
 import presto.android.xml.DefaultXMLParser
 import presto.android.xml.XMLParser
 import soot.*
@@ -70,6 +74,7 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         val allEventHandler_WTGEdgeMap = HashMap<SootMethod, ArrayList<WTGEdge>>()
         //val launchActivity = ArrayList<>
         val topCallingModifiedMethods = HashMap<String, ArrayList<String>>()
+        val intentCallingModifiedMethods = HashMap<String, HashSet<SootClass>>()
         val cacheMethodInvocation = HashMap<String, ArrayList<WTGEdge>>()
         // key: source value: hashMapOf(widget, events)
         val modMethodInvocation = HashMap<String, ArrayList<WTGEdge>>()
@@ -95,6 +100,7 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         guiAnalysisOutput = output
         Logger.verb("INFO", "GUIUserInteractionClient start")
         initWTG(output)
+        processIntentFilter()
         val apkPath = Paths.get(Configs.project)
         val apkName = output.appPackageName
         val diffFile = Files.list(apkPath.parent).filter { it.fileName.toString().contains(apkName) && it.fileName.toString().endsWith("-diff.json") }.findFirst().orElse(null)
@@ -103,7 +109,7 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         }
         else
         {
-            Scene.v().applicationClasses.forEach {
+            Scene.v().applicationClasses.filter{ it.name.startsWith(apkName)}. forEach {
                 it.methods.forEach {
                     modifiedMethods.add(it.signature)
                 }
@@ -253,6 +259,29 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         }
     }
 
+    val implicitIntentFilters = HashMap<NActivityNode, HashSet<IntentFilter>>()
+    private fun processIntentFilter() {
+        val filterManager = IntentFilterManager.v()
+        val clsToFilters = filterManager.getAllFilters()
+        val intentAnalysisInfo = IntentAnalysisInfo()
+
+        clsToFilters.forEach { actName, filters ->
+            val activityNode = guiAnalysisOutput!!.flowgraph.activityNode(Scene.v().getSootClass(actName))
+            if (!implicitIntentFilters.containsKey(activityNode))
+            {
+                implicitIntentFilters.put(activityNode, HashSet())
+            }
+            val hasDataIntentFilters = implicitIntentFilters.get(activityNode)!!
+            filters.forEach {filter ->
+                if (filter.actions.filterNot { it == "android.intent.action.MAIN"}.isNotEmpty()
+                        && (filter.dataSchemes.isNotEmpty() || filter.dataTypes.isNotEmpty()))
+                {
+                    hasDataIntentFilters.add(filter)
+                }
+            }
+        }
+    }
+
     private fun getAllStringTexts() {
         val parser = XMLParser.Factory.getXMLParser() as DefaultXMLParser
 
@@ -357,15 +386,17 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
             if (!Scene.v().containsMethod(sootSignature))
                 continue
             val declaredClass = Scene.v().getMethod(sootSignature).declaringClass
-            if (!declaredClass.isApplicationClass)
-                continue;
-
+            /*if (!declaredClass.isApplicationClass)
+                continue;*/
+            if (!declaredClass.name.startsWith(refinedPackageName))
+                continue
             modifiedMethods.add(sootSignature)
         }
     }
 
     private fun findModifiedMethodInvocation(refinedPackageName: String) {
-        val callbackFinder = CallbackFinder(guiAnalysisOutput!!, allMeaningfullEventHandlers, widgetEvents, notAppearInTargetCallingMethods, topCallingModifiedMethods)
+        val callbackFinder = CallbackFinder(guiAnalysisOutput!!, allMeaningfullEventHandlers, widgetEvents, notAppearInTargetCallingMethods, topCallingModifiedMethods,
+                implicitIntentActivities = implicitIntentFilters.filter {it.value.isNotEmpty()}.map { it.key.c}.toSet(), intentCallingMethods = intentCallingModifiedMethods)
         modifiedMethods.forEach {
             if (!Scene.v().containsMethod(it)) {
                 notFoundModifiedMethods.add(it)
@@ -682,6 +713,8 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         outputMap["modifiedMethods"] = modifiedMethods
         outputMap["modiMethodInvocation"] = produceViewInvocationHashMap()
         outputMap["modiMethodTopCaller"] = produceModifiedMethodTopCaller()
+        outputMap["modiMethodIntentCaller"] = produceModifiedMethodIntentCaller()
+
         outputMap["allWindow_Widgets"] = allWindow_Widgets
         outputMap["allWindow_Widget_EventHandlers"] = allWindow_Widget_EventHandlers
         outputMap["allTransitions"] = allTransitions
@@ -718,6 +751,7 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         //outputMap["event_Event_Correlation"] = produceEventCorrelations(ComponentRelationCalculation.instance.eventCorrelationScores)
         //outputMap["window_Window_Correlation"] = produceWindowCorrelations(ComponentRelationCalculation.instance.windowCorrelationScores)
         outputMap["event_window_Correlation"] = produceEventWindowCorrelations(ComponentRelationCalculation.instance.eventWindowCorrelationScores)
+        outputMap["intentFilters"] = produceIntentFilters(implicitIntentFilters)
         val instrumentResultFile = if (Configs.pathoutfilename != null && Configs.pathoutfilename.isNotBlank()) {
             outputDir.resolve(Configs.pathoutfilename)
         } else {
@@ -730,6 +764,38 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         Logger.verb("INFO", "Number of handled modified methods: ${outputMap["numberOfHandledModifiedMethods"]}")
         Logger.verb("INFO", "Number of unhandled modified methods: ${outputMap["numberOfUnhandledModifiedMethods"]}")
         return instrumentResultFile
+    }
+
+    private fun produceModifiedMethodIntentCaller(): Any {
+        val result = HashMap<String, ArrayList<String>>()
+        intentCallingModifiedMethods.forEach { method, activityClasses ->
+            activityClasses.forEach {
+                if (!result.containsKey(it.name)) {
+                    result.put(it.name, ArrayList<String>())
+                }
+                result[it.name]!!.add(method)
+            }
+
+        }
+        return result
+    }
+
+    private fun produceIntentFilters(implicitIntentFilters: HashMap<NActivityNode, HashSet<IntentFilter>>): Any {
+        val output = HashMap<String, Any>()
+        implicitIntentFilters.forEach { actName, filters ->
+            val filtersOutput = ArrayList<Any>()
+            filters.forEach { filter ->
+                val filterOutput = HashMap<String, Any>()
+                output.put(actName.toString(),filterOutput)
+                filterOutput.put("actions", filter.actions)
+                filterOutput.put("categories", filter.categories)
+                filterOutput.put("dataSchemes", filter.dataSchemes)
+                filterOutput.put("dataType", filter.dataTypes)
+                filterOutput.put("dataPaths", filter.dataPaths)
+                filterOutput.put("dataAuthorities", filter.dataAuthorities)
+            }
+        }
+        return output
     }
 
     private fun produceEventWindowCorrelations(eventWindowCorrelationScores: HashMap<ComponentRelationCalculation.Event, HashMap<NObjectNode, Pair<Double, HashMap<String, Double>>>>): Any {
