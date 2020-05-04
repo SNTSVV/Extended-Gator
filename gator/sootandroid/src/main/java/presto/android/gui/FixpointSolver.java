@@ -172,17 +172,14 @@ public class FixpointSolver {
   public void solveCore() {
     Logger.verb("DEBUG", "Begin solveCore");
     // compute
-
+    fieldReachabilty();
     layoutIdReachability();
     menuIdReachability();
-
-    //windowReachability();
 
     FixpointComputationOptimized.windowReachability(this);
     optionsMenuReachability();
     contextMenuReachability();
     viewIdReachability();
-    //fieldReachabilty();
 
     if (Configs.enableStringAppendAnalysis && Configs.enableStringPropertyAnalysis) {
       Logger.trace(TAG, "start string append analysis...");
@@ -1543,7 +1540,7 @@ public class FixpointSolver {
 
   // Now, we are done with inflation. Let's process other NOpNodes
   void viewAndListenerPropagation() {
-    int threshold = 3;
+    int threshold = 10;
     int time = 0;
     while (true && time < threshold) {
       boolean changed = false;

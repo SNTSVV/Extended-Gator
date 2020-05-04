@@ -9,6 +9,7 @@
 
 package presto.android.gui.clients.regression
 
+import fj.Hash
 import org.json.JSONArray
 import org.json.JSONObject
 import org.slf4j.LoggerFactory
@@ -99,11 +100,19 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
     override fun run(output: GUIAnalysisOutput) {
         guiAnalysisOutput = output
         Logger.verb("INFO", "GUIUserInteractionClient start")
+        //get all active activities
+
+
         initWTG(output)
         processIntentFilter()
         val apkPath = Paths.get(Configs.project)
-        val apkName = output.appPackageName
-        val diffFile = Files.list(apkPath.parent).filter { it.fileName.toString().contains(apkName) && it.fileName.toString().endsWith("-diff.json") }.findFirst().orElse(null)
+        val packageFile = Files.list(apkPath.parent).filter { it.fileName.toString().contains(output.appPackageName) && it.fileName.toString().endsWith("-package.txt") }.findFirst().orElse(null)
+        val apkName = if (Configs.appPackage.equals("")) {
+            output.appPackageName
+        } else {
+            Configs.appPackage
+        }
+        val diffFile = Files.list(apkPath.parent).filter { it.fileName.toString().contains(output.appPackageName) && it.fileName.toString().endsWith("-diff.json") }.findFirst().orElse(null)
         if (diffFile != null) {
             readAppDiffFile(diffFile.toString(), apkName)
         }
@@ -123,18 +132,8 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
 
     private fun initWTG(output: GUIAnalysisOutput) {
         VarUtil.v().guiOutput = output
-        output.flowgraph.allNNodes.filter { it is NOpNode }.forEach {
-            allOpNodes.add(it.toString())
-        }
-        output.flowgraph.allNLayoutIdNodes.forEach { t, u ->
-            allLayoutIdNodes.add(u.toString())
-            u.successors.forEach {
-                if (!it.successors.isEmpty()) {
-                    allInflateNodes.add(u.toString() + "---[INFLATE]---" + it.successors.first().toString())
-                }
+        val activities = XMLParser.Factory.getXMLParser().activities.asSequence().toList();
 
-            }
-        }
         val wtgBuilder = WTGBuilder()
         wtgBuilder.build(output)
         val wtgAO = WTGAnalysisOutput(output, wtgBuilder)
@@ -147,14 +146,19 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
 
         //get all Activities
         var activityId: Int = 0
-        val map = output.activities.map { activityId++ to it.name }.toMap()
+        val map = output.activities.map { activityId++ to it.name }.toMap().filter { activities.contains(it.value) }
         map.forEach { t, u -> allActivities[t] = u }
         output.flowgraph.allNNodes.forEach {
             if (it is NWindowNode || it is NOptionsMenuNode || it is NContextMenuNode) {
-                getAllWindowWidgets(it as NObjectNode)
+                if (it is NWindowNode && activities.contains(it.c.name))
+                    getAllWindowWidgets(it as NObjectNode)
+                if (it is NOptionsMenuNode && activities.contains(it.ownerActivity.name))
+                    getAllWindowWidgets(it as NObjectNode)
+                if (it is NContextMenuNode)
+                    getAllWindowWidgets(it as NObjectNode)
             }
         }
-        output.flowgraph.allNActivityNodes.forEach {
+        output.flowgraph.allNActivityNodes.filter { activities.contains(it.key.name) }.forEach {
             allActivityNodes[it.value.id] = it.value.toString()
 
         }
@@ -170,10 +174,18 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
 
         getAllContextMenuItems(output)
         wtg.nodes.forEach {
+
             allNodes.add(it.toString())
         }
         val edges = wtg.edges
         for (e in edges) {
+            val sourceNode = e.sourceNode
+            if (sourceNode is NActivityNode && !activities.contains(sourceNode.c.name)) {
+                continue
+            }
+            if (sourceNode is NOptionsMenuNode && !activities.contains(sourceNode.ownerActivity.name)) {
+                continue
+            }
             getAllTransition(e)
             //get all activity-dialog transitions
             getAllActivityDialogOpen(e)
@@ -316,15 +328,12 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
 
     fun isNotSupportedEventType(eventType: EventType): Boolean =
             when (eventType) {
-                EventType.implicit_async_event,
-                EventType.implicit_hierarchy_change,
                 EventType.implicit_lifecycle_event,
                 EventType.implicit_power_event,
                     // EventType.implicit_back_event,
                 EventType.implicit_system_ui_change,
                 EventType.implicit_time_tick,
                 EventType.press_key,
-                EventType.dialog_dismiss,
                 EventType.dialog_negative_button, // TODO(tony): remove soon
                 EventType.dialog_neutral_button,
                 EventType.dialog_positive_button,
@@ -707,6 +716,7 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         outputMap["allActivityDialogs"] = allActivity_Dialogs
         outputMap["allActivityOptionMenuItems"] = allActivityOptionMenuItems
         outputMap["allWidgetEvent"] = produceAllWidgetEvent()
+        outputMap["activityAlias"] = produceActivityAlias()
 //            //outputMap["allCallbacks"] = allCallbacks
 //            //outputMap["allStatements"] = allStatements
 //            //outputMap["allMethods"] = allMethods
@@ -720,6 +730,7 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         outputMap["allTransitions"] = allTransitions
         outputMap["allStrings"] = allResourceStrings
         outputMap["menuItemTexts"] = menuItemsTexts
+        outputMap["windowHandlers"] = produceWindowHandlers(ComponentRelationCalculation.instance.windowHandlersMap)
 //            outputMap["widgetTexts"]= widgetTexts
 //            outputMap["allNodes"] = allNodes
 //            outputMap["allOpNodes"] = allOpNodes
@@ -764,6 +775,19 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         Logger.verb("INFO", "Number of handled modified methods: ${outputMap["numberOfHandledModifiedMethods"]}")
         Logger.verb("INFO", "Number of unhandled modified methods: ${outputMap["numberOfUnhandledModifiedMethods"]}")
         return instrumentResultFile
+    }
+
+    private fun produceActivityAlias(): Any {
+        return XMLParser.Factory.getXMLParser().activityAlias;
+    }
+
+    private fun produceWindowHandlers(windowHandlersMap: HashMap<NObjectNode, HashSet<SootMethod>>): Any {
+        val result: HashMap<String, Any> = HashMap()
+        windowHandlersMap.forEach { window, handlers ->
+            val handlersOutput = handlers.map { it.signature }
+            result.put(window.toString(), handlersOutput)
+        }
+        return result
     }
 
     private fun produceModifiedMethodIntentCaller(): Any {

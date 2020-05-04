@@ -36,6 +36,7 @@ class ComponentRelationCalculation {
     val eventHandlersDependencyCount = HashMap<SootMethod,HashMap<String,Long>>()
     val eventsDependencyCount = HashMap<Event, HashMap<String,Long>>()
     val windowsDependencyCount = HashMap<NObjectNode, HashMap<String,Long>>()
+    val windowHandlersMap = HashMap<NObjectNode,HashSet<SootMethod>>()
 
     val betweenClassDependencyHashMap = HashMap<SootClass, HashSet<Pair<SootClass,Long>>>()
     val classDependencyAppearance = HashMap<SootClass, Long>() //number of event handlers in which class is a dependency
@@ -454,6 +455,7 @@ class ComponentRelationCalculation {
                 }
             }
             windowsDependencyCount.put(queryWindow,windowDependency)
+            windowHandlersMap.put(queryWindow,windowMethods)
         }
     }
     private fun computeAllWindowCorrelationScores(informationRetrieval: InformationRetrieval<String, NObjectNode>)

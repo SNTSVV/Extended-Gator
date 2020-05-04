@@ -132,8 +132,8 @@ public class Flowgraph implements MethodNames {
     // TabHost, TabSpec...
     processTabHostRelatedCalls();
 
-//    processAddFragmentCalls();
-//    processReplaceFragmentCalls();
+    processAddFragmentCalls();
+    processReplaceFragmentCalls();
 
     processFlowFromSetListenerToEventHandlers();
 
@@ -1023,6 +1023,7 @@ public class Flowgraph implements MethodNames {
         fakeLocalNode.addEdgeTo(lhsNode, s);
       }
     }
+
     SootClass callerClass = caller.getDeclaringClass();
     if ( caller.getSubSignature().equals(onCreateView) ){
       SootClass fragmentClass = caller.getDeclaringClass();

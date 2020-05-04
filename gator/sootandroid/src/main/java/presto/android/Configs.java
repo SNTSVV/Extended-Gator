@@ -22,7 +22,7 @@ import java.util.*;
 
 public class Configs {
   public static String benchmarkName;
-
+  public static String appPackage;
   // root of the project directory
   public static String project;
   public static boolean apkMode;

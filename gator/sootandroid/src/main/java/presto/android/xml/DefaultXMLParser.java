@@ -11,7 +11,6 @@ package presto.android.xml;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import org.checkerframework.checker.units.qual.A;
 import org.w3c.dom.*;
 import org.xml.sax.SAXException;
 import presto.android.Configs;
@@ -30,7 +29,6 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
-import java.io.FileFilter;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.*;
@@ -363,9 +361,12 @@ public class DefaultXMLParser extends AbstractXMLParser {
             if ("activity".equals(eleName) )
               cls = Helper.getClassName(m.getNamedItemNS(ANDROID_NS, "name")
                     .getTextContent(), appPkg);
-            else
+            else {
               cls = Helper.getClassName(m.getNamedItemNS(ANDROID_NS, "targetActivity")
                       .getTextContent(), appPkg);
+              String alias = m.getNamedItemNS(ANDROID_NS, "name").getTextContent();
+              getActivityAlias().put(alias,cls);
+            }
             if (cls == null) {
               continue;
             }

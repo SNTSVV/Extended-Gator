@@ -132,17 +132,20 @@ public class Main {
       } else if ("-enableStringPropertyAnalysis".equals(s)
               || "-sp".equals(s)) {
         Configs.enableStringPropertyAnalysis = true;
-      } else {
+      } else if ("-appPackage".equals(s)) {
+        Configs.appPackage = args[++i];
+      }
+      else {
         throw new RuntimeException("Unknown option: " + s);
       }
     }
     Configs.withCHA = true;
     Configs.enableStringAppendAnalysis = true;
     Configs.enableStringPropertyAnalysis = true;
-    Configs.debugCodes.add(Debug.OP_NODE_DEBUG);
+//    Configs.debugCodes.add(Debug.OP_NODE_DEBUG);
 //    Configs.debugCodes.add(Debug.LIST_ADAPTER_DEBUG);
-    Configs.debugCodes.add(Debug.LISTENER_DEBUG);
-    Configs.debugCodes.add(Debug.WORKLIST_DEBUG);
+//    Configs.debugCodes.add(Debug.LISTENER_DEBUG);
+//    Configs.debugCodes.add(Debug.WORKLIST_DEBUG);
 //      Configs.workerNum = 8;
     Configs.clients.add(GUIUserInteractionClient.class.getName());
     Configs.processing();

@@ -17,6 +17,7 @@ import soot.Scene;
 import soot.SootClass;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -35,7 +36,7 @@ public interface XMLParser {
     protected final ArrayList<String> activities = Lists.newArrayList();
     protected final ArrayList<String> services = Lists.newArrayList();
     protected final ArrayList<String> receivers = Lists.newArrayList();
-
+    protected final HashMap<String, String> activityAlias = new HashMap<>();
     protected SootClass mainActivity;
 
     @Override
@@ -56,6 +57,11 @@ public interface XMLParser {
     @Override
     public String getAppPackageName() {
       return appPkg;
+    }
+
+    @Override
+    public HashMap<String, String> getActivityAlias() {
+      return activityAlias;
     }
   }
 
@@ -150,6 +156,8 @@ public interface XMLParser {
   SootClass getMainActivity();
 
   Iterator<String> getActivities();
+
+  HashMap<String, String> getActivityAlias();
 
   Iterator<String> getServices();
 
