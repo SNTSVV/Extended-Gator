@@ -135,6 +135,8 @@ public class Flowgraph implements MethodNames {
     processAddFragmentCalls();
     processReplaceFragmentCalls();
 
+    processViewPagerSetAdapter();
+
     processFlowFromSetListenerToEventHandlers();
 
   }
@@ -162,7 +164,6 @@ public class Flowgraph implements MethodNames {
       if (hier.applicationActivityClasses.contains(c)) {
         processActivityCallbacks(c);
       } else if (hier.applicationFragmentClasses.contains(c)){
-
         processFragmentCallbacks(c);
       }
       else {
@@ -214,7 +215,10 @@ public class Flowgraph implements MethodNames {
     modelFlowFromCreateContextMenuToItemSelected(c);
     //Connect fragment node to <this> of callback methods
     Set <SootMethod> callbacks = hier.frameworkManaged.get(c);
+    SootMethod onCreateView = null;
+    SootMethod onViewCreated = null;
     for (SootMethod callbackPrototype : callbacks) {
+      Logger.verb("DEBUG", "[Flowgraph] Callbacks: "+callbackPrototype.getSubSignature());
       String subsig = callbackPrototype.getSubSignature();
       SootClass matched = hier.matchForVirtualDispatch(subsig, c);
       if (matched == null) {
@@ -224,12 +228,33 @@ public class Flowgraph implements MethodNames {
       if (!matched.isApplicationClass()) {
         continue;
       }
+      Logger.verb("DEBUG", "[Flowgraph] Matched Callbacks: "+callbackPrototype.getSubSignature());
       SootMethod callback = matched.getMethod(subsig);
       Local thisLocal = jimpleUtil.thisLocal(callback);
       NFragmentNode fragNode = fragmentNode(c);
       fragNode.addEdgeTo(varNode(thisLocal), null);
+      // specially deal with onViewCreated
+      if (callback.getSubSignature().equals(fragmentOnCreateViewSubSig)) {
+         onCreateView = callback;
+      }
+      if (callback.getSubSignature().equals(onViewCreatedSubSig)) {
+        onViewCreated = callback;
+      }
     }
+    if (onCreateView != null && onViewCreated != null) {
+      Set<Value> returnValues = jimpleUtil.getReturnValues(onCreateView);
+      for (Value returnValue : returnValues) {
+        NNode returnViewNode = simpleNode(returnValue);
+        NNode viewLocal = varNode(onViewCreated.getActiveBody().getParameterLocal(0));
+        //assign flow from viewGroupParent to viewLocal
+        returnViewNode.addEdgeTo(viewLocal);
+        Logger.verb("Fragment", "OnViewCreated view: "+ viewLocal.toString()+" --> OnCreateView viewGroup: "+ returnViewNode.toString());
+      }
+
+    }
+
   }
+
 
   Map<SootClass, Map<SootMethod, Set<SootMethod>>>
           activityToCreateOrPrepareMenuAndItemSelected = Maps.newHashMap();
@@ -603,6 +628,7 @@ public class Flowgraph implements MethodNames {
     }
     return optionsMenuNode;
   }
+
   // Arrays.
   Map<Local, Set<Stmt>> varsAtArrayRefRead = Maps.newHashMap();
   Map<Local, Set<Stmt>> varsAtArrayRefWrite = Maps.newHashMap();
@@ -2356,6 +2382,9 @@ public class Flowgraph implements MethodNames {
     if (recordReplaceFragmentCalls(s)){
       return;
     }
+    if (recordViewPagerSetAdapterCalls(s)) {
+      return;
+    }
   }
 
   //--- List views and adapters
@@ -2399,7 +2428,10 @@ public class Flowgraph implements MethodNames {
   Set<Stmt> recyclerViewAdapterCreateHolderCalls = Sets.newHashSet();
   Set<Stmt> listAdapterGetViewCalls = Sets.newHashSet();
 
-  boolean recordRecylerViewAdapterViewHolderCreation(Stmt s) {
+  Set<Stmt> pagerAdapterGetItemCalls = Sets.newHashSet();
+  Set<Stmt> viewPagerSetAdapterCalls = Sets.newHashSet();
+
+  boolean recordRecylerViewAdapterViewHolderCreation(Stmt s)                                                                                                              {
     InvokeExpr ie = s.getInvokeExpr();
     SootMethod callee = ie.getMethod();
     if (!callee.isConstructor())
@@ -2464,6 +2496,7 @@ public class Flowgraph implements MethodNames {
     }
 
   }
+
   boolean recordSetAdapterCalls(Stmt s) {
     InvokeExpr ie = s.getInvokeExpr();
     SootMethod callee = ie.getMethod();
@@ -2492,6 +2525,117 @@ public class Flowgraph implements MethodNames {
     Logger.verb("DEBUG", "Set adapter: "+ s.toString());
     listViewSetAdapterCalls.add(s);
     return true;
+  }
+
+  boolean recordViewPagerSetAdapterCalls(Stmt s) {
+    InvokeExpr ie = s.getInvokeExpr();
+    SootMethod callee = ie.getMethod();
+    String subsig = callee.getSubSignature();
+    if (!subsig.equals(viewPagerSetAdapterSubSig1) &&
+    !subsig.equals(viewPagerSetAdapterSubSig2)) {
+      return false;
+    }
+    Local receiver = jimpleUtil.receiver(ie);
+    if (receiver == null) {
+      //A static invoke
+      return false;
+    }
+
+    Type receiverType = receiver.getType();
+    if (!(receiverType instanceof RefType)) {
+      return false;
+    }
+    SootClass receiverClass = ((RefType) receiverType).getSootClass();
+    if (!hier.isSubclassOf(receiverClass, viewPagerClass1) && !hier.isSubclassOf(receiverClass,viewPagerClass2)) {
+      return false;
+    }
+    if (Configs.debugCodes.contains(Debug.VIEWPAGER_DEBUG)) {
+      Logger.verb("Viewpager", "Recorded viewpager->setAdapter: "+ s.toString());
+    }
+    viewPagerSetAdapterCalls.add(s);
+    return true;
+  }
+
+  void processViewPagerSetAdapter() {
+    for (Stmt s: viewPagerSetAdapterCalls) {
+      InvokeExpr ie = s.getInvokeExpr();
+      Local receiver = jimpleUtil.receiver(ie);
+
+      Value arg0 = ie.getArg(0);
+      if (arg0 instanceof NullConstant) {
+        return;
+      }
+
+      NVarNode viewPagerNode = varNode (receiver);
+      Local adapter = (Local) arg0;
+
+      // Assume adapter flow is only intra-procedural.
+      SootMethod caller = jimpleUtil.lookup(s);
+      Set<NNode> sources = graphUtil.backwardReachableNodes(varNode(adapter));
+      Pair<Stmt, SootMethod> callSite = new Pair<Stmt, SootMethod>(s, caller);
+      for (NNode src : sources) {
+        if (!(src instanceof NObjectNode)) {
+          continue;
+        }
+        if (Configs.debugCodes.contains(Debug.VIEWPAGER_DEBUG)) {
+          Logger.verb("Viewpager", "PagerAdapter: " +src.toString()+
+                  "->Class: "+ ((NObjectNode) src).getClassType().getName());
+        }
+        SootClass adapterType = ((NObjectNode) src).getClassType();
+        SootMethod getItemMethod = null;
+        SootClass concreteType;
+        if (!hier.isSubclassOf(adapterType,pagerAdapterClass1) && !hier.isSubclassOf(adapterType,pagerAdapterClass2))
+          continue;
+        concreteType = adapterType;
+        for (SootMethod m: concreteType.getMethods())
+        {
+          if (!m.getSubSignature().equals(pagerAdapterGetItemSubSig1)
+                  && !m.getSubSignature().equals(pagerAdapterGetItemSubSig2)
+                  && !m.getSubSignature().equals(pagerAdapterGetItemSubSig3))
+            continue;
+          getItemMethod = m;
+          break;
+        }
+        if (getItemMethod == null) {
+          if (Configs.debugCodes.contains(Debug.VIEWPAGER_DEBUG)) {
+            Logger.verb("Viewpager", "PagerAdapter: " +adapterType.getName()+
+                    " not implement getItem(int)");
+          }
+          return;
+        }
+        //Connect return variable
+        Set<Value> returnValuesForGetView =
+                jimpleUtil.getReturnValues(getItemMethod);
+        for (Value returnValue : returnValuesForGetView) {
+          if (returnValue instanceof Local) {
+            Set<NNode> backReachable = graphUtil.backwardReachableNodes(simpleNode(returnValue));
+            for (NNode backNode : backReachable) {
+              if (!(backNode instanceof NObjectNode))
+                continue;
+              SootClass nodeClass = ((NObjectNode) backNode).getClassType();
+              if (!hier.isFragmentClass(nodeClass))
+                continue;
+              NVarNode fragmentViewNode = fragmentsReturnViewMap.get(nodeClass);
+              if (fragmentViewNode != null)
+              {
+                String fakeLocalName = nextFakeName();
+                NAddView2OpNode addView2OpNode = new NAddView2OpNode(viewPagerNode, fragmentViewNode, null, true);
+                allNNodes.add(addView2OpNode);
+                if (Configs.debugCodes.contains(Debug.VIEWPAGER_DEBUG)) {
+                  Logger.verb("Viewpager", "viewPager: " +viewPagerNode.toString()+
+                          "->Fragment: "+ nodeClass.getName() + " -- view: "+ fragmentViewNode  .toString());
+                }
+              } else {
+                if (Configs.debugCodes.contains(Debug.VIEWPAGER_DEBUG)) {
+                  Logger.verb("Viewpager", "[WARNING] viewPager: " +viewPagerNode.toString()+
+                          "->Fragment: "+ nodeClass.getName() + " -- cannot retrieve view for this fragment");
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   }
 
   public boolean recordListAdapterConstructor(Stmt s) {
@@ -2528,6 +2672,27 @@ public class Flowgraph implements MethodNames {
     }
     Logger.verb("DEBUG", "Adapter get view: "+ s.toString());
     listAdapterGetViewCalls.add(s);
+    return true;
+  }
+
+
+  boolean recordPagerAdapterGetItem(Stmt s) {
+    InvokeExpr ie = s.getInvokeExpr();
+    SootMethod callee = ie.getMethod();
+    String subsig = callee.getSubSignature();
+    if (!subsig.equals(pagerAdapterGetItemSubSig1)
+    && !subsig.equals(pagerAdapterGetItemSubSig2)
+    && !subsig.equals(pagerAdapterGetItemSubSig3)) {
+      return false;
+    }
+    Local receiver = jimpleUtil.receiver(ie);
+    SootClass receiverClass = ((RefType) receiver.getType()).getSootClass();
+    if (!hier.isSubclassOf(receiverClass, viewPagerClass1)
+            && !hier.isSubclassOf(receiverClass, viewPagerClass2)) {
+      return false;
+    }
+    Logger.verb("DEBUG", "Adapter get view: "+ s.toString());
+    pagerAdapterGetItemCalls.add(s);
     return true;
   }
 
@@ -2840,6 +3005,7 @@ public class Flowgraph implements MethodNames {
     allNNodes.add(addView2);
     return listItemNode;
   }
+
 
   /**
    * Calls to ArrayAdapter.getView() by default would inflate the saved layout
@@ -5387,7 +5553,7 @@ public class Flowgraph implements MethodNames {
       if (returnValueNode != null)
       {
         fragmentsReturnViewMap.put(c, returnValueNode);
-        Logger.verb("ProcessFragment", "Return view: " + returnValueNode);
+        Logger.verb("ProcessFragment", "Fragment: " +c.getName()+"--> Return view: " + returnValueNode);
         return returnValueNode;
       }
     }
@@ -5442,8 +5608,8 @@ public class Flowgraph implements MethodNames {
     return result;
   }
 
-  public List<NAddFragmentOpNode> processAddFragmentStm(Stmt s, NNode parentLocalNode){
-    ArrayList<NAddFragmentOpNode> addFragmentOpNodeArrayList = new ArrayList<>();
+  public List<NOpNode> processAddFragmentStm(Stmt s, NNode parentLocalNode){
+    ArrayList<NOpNode> addFragmentOpNodeArrayList = new ArrayList<>();
     InvokeExpr ie = s.getInvokeExpr();
     SootMethod callee = ie.getMethod();
     String subsig = callee.getSubSignature();
@@ -5480,6 +5646,23 @@ public class Flowgraph implements MethodNames {
     }
     if (simpleNode(layoutIdVal)==null)
       return null;
+    connectParentWithFragment(s, (NVarNode) parentLocalNode, rev, receiverClass, layoutIdVal, fragment,addFragmentOpNodeArrayList,1);
+    return addFragmentOpNodeArrayList;
+
+  }
+
+  /**
+   *
+   * @param s
+   * @param parentLocalNode
+   * @param rev
+   * @param receiverClass
+   * @param layoutIdVal
+   * @param fragment
+   * @param fragmentOpNodeArrayList
+   * @param opNodeType 1 -> addFragmentOpNode, 2-> replaceFragmentOpNode
+   */
+  private void connectParentWithFragment(Stmt s, NVarNode parentLocalNode, Local rev, SootClass receiverClass, Value layoutIdVal, Local fragment, ArrayList<NOpNode> fragmentOpNodeArrayList, int opNodeType) {
     SootMethod caller = jimpleUtil.lookup(s);
     ArrayList<SootClass> relatedClass = new ArrayList<>();
     if (hier.isActivityClass(receiverClass) || hier.isFragmentClass(receiverClass))
@@ -5506,21 +5689,32 @@ public class Flowgraph implements MethodNames {
 
         Pair<Stmt, SootMethod> callSite =
                 new Pair<Stmt, SootMethod>(s, caller);
-        NAddFragmentOpNode addFragment = null;
+        NOpNode fragmentOpNode = null;
         NNode layoutIdNode = simpleNode(layoutIdVal);
 
         //get the top fragment value
-        NVarNode fragmentNode = varNode((Local)item.getO2());
-        parentReceiverNode.addEdgeTo(fragmentNode);
+        NVarNode localfragmentNode = varNode((Local)item.getO2());
+        parentReceiverNode.addEdgeTo(localfragmentNode);
         NVarNode receiverNode = varNode(rev);
-        addFragment = new NAddFragmentOpNode(layoutIdNode, fragmentNode, parentReceiverNode, callSite, false );
+        if (opNodeType == 1) {
+          fragmentOpNode = new NAddFragmentOpNode(layoutIdNode, localfragmentNode, parentReceiverNode, callSite, false );
+        }
+        else {
+          fragmentOpNode = new NReplaceFragmentOpNode(layoutIdNode, localfragmentNode, parentReceiverNode, callSite, false );
+        }
+
         SootClass fragmentClass = ((RefType) item.getO2().getType()).getSootClass();
         fragmentNode(fragmentClass);
-        Logger.verb("ProcessFragment", "AddFragmentOpNode created: "+ caller.getDeclaringClass() + " -> " + fragmentClass
-                + " -> " + layoutIdNode.toString() + " -> " + c.getName());
+
+
         //FindViewById + AddView
         NVarNode fragmentViewNode = fragmentsReturnViewMap.get(fragmentClass);
-        Logger.verb("ProcessFragment", "Return view: "+fragmentViewNode);
+        if (Configs.debugCodes.contains(Debug.FRAGMENT_DEBUG)) {
+          Logger.verb("ProcessFragment", fragmentOpNode.getClass() + " created: "+ c.getName() + " -> " + fragmentClass
+                  + " -> " + layoutIdNode.toString());
+          Logger.verb("ProcessFragment", "Return view: "+fragmentViewNode);
+        }
+
         if (hier.isActivityClass(c))
           activityNode(c).addEdgeTo(fragmentNode(fragmentClass));
         else if (hier.isFragmentClass(c))
@@ -5529,25 +5723,34 @@ public class Flowgraph implements MethodNames {
         if (fragmentViewNode != null)
         {
           String fakeLocalName = nextFakeName();
-          NVarNode parentLayoutNode = varNode(Jimple.v().newLocal(nextFakeName(),Scene.v().getSootClass("android.widget.FrameLayout").getType()));
-          NFindView2OpNode findViewNode = new NFindView2OpNode(layoutIdNode, parentReceiverNode , parentLayoutNode, null, true);
+          NVarNode parentLayoutNode = varNode(Jimple.v().newLocal(nextFakeName(), Scene.v().getSootClass("android.widget.FrameLayout").getType()));
+          if (hier.isActivityClass(c))
+            activityNode(c).addEdgeTo(parentLayoutNode);
+          else if (hier.isFragmentClass(c))
+            fragmentNode(c).addEdgeTo(parentLayoutNode);
+          NFindView2OpNode findViewNode = new NFindView2OpNode(layoutIdNode, parentReceiverNode , parentLayoutNode, callSite, true);
           allNNodes.add(findViewNode);
-          NAddView2OpNode addView2OpNode = new NAddView2OpNode(parentLayoutNode, fragmentViewNode, null, true);
+          if (Configs.debugCodes.contains(Debug.FRAGMENT_DEBUG)) {
+            Logger.verb("ProcessFragment", "FindView2OpNode: "+findViewNode +"--LayoutId: "+ layoutIdNode.toString()
+            + "--Parent: "+parentReceiverNode);
+          }
+          NAddView2OpNode addView2OpNode = new NAddView2OpNode(parentLayoutNode, fragmentViewNode, callSite, true);
           allNNodes.add(addView2OpNode);
-
-          Logger.verb("ProcessFragment", "AddView2OpNode: "+addView2OpNode);
+          if (Configs.debugCodes.contains(Debug.FRAGMENT_DEBUG)) {
+            Logger.verb("ProcessFragment", "AddView2OpNode: "+addView2OpNode);
+          }
         }
 
         //Integrate Options Menu
-        integrateOptionsMenuNodeFromFragmentToActivity(fragmentClass, ((RefType) ((NVarNode) parentLocalNode).l.getType()).getSootClass() );
-        allAddFragmentNodes.add(addFragment);
-        addFragmentOpNodeArrayList.add(addFragment);
+        integrateOptionsMenuNodeFromFragmentToActivity(fragmentClass, ((RefType) parentLocalNode.l.getType()).getSootClass() );
+        if (fragmentOpNode instanceof NAddFragmentOpNode) {
+          allAddFragmentNodes.add((NAddFragmentOpNode) fragmentOpNode);
+        } else if (fragmentOpNode instanceof NReplaceFragmentOpNode) {
+          allReplaceFragmentNodes.add((NReplaceFragmentOpNode) fragmentOpNode);
+        }
+        fragmentOpNodeArrayList.add(fragmentOpNode);
       }
     }
-
-
-    return addFragmentOpNodeArrayList;
-
   }
 
   private Local getClassLocal(SootClass c) {
@@ -5751,8 +5954,8 @@ public class Flowgraph implements MethodNames {
     //if (fr)
   }
 
-  public List<NReplaceFragmentOpNode> processReplaceFragmentNode(Stmt s, NNode parentLocalNode){
-    ArrayList<NReplaceFragmentOpNode> addReplaceOpNodeArrayList = new ArrayList<>();
+  public List<NOpNode> processReplaceFragmentNode(Stmt s, NNode parentLocalNode){
+    ArrayList<NOpNode> addReplaceOpNodeArrayList = new ArrayList<>();
 
     InvokeExpr ie = s.getInvokeExpr();
     SootMethod callee = ie.getMethod();
@@ -5779,70 +5982,8 @@ public class Flowgraph implements MethodNames {
     Local fragment = null;
     layoutIdVal = ie.getArg(0);
     fragment = (Local) ie.getArg(1);
+    connectParentWithFragment(s, (NVarNode) parentLocalNode, rev, receiverClass, layoutIdVal, fragment,addReplaceOpNodeArrayList,2);
 
-    SootMethod caller = jimpleUtil.lookup(s);
-    ArrayList<SootClass> relatedClass = new ArrayList<>();
-    if (hier.isActivityClass(receiverClass) || hier.isFragmentClass(receiverClass))
-    {
-      if (receiverClass.isConcrete())
-        relatedClass.add(receiverClass);
-      relatedClass.addAll(hier.getSubtypes(receiverClass));
-    }
-    for (SootClass c: relatedClass)
-    {
-      if (c.isAbstract() || c.getName()=="android.app.Activity" ||c.getName()=="android.app.ListActivity")
-      {
-        continue;
-      }
-      Logger.verb("ProcessFragment","Derived class: "+c.getName());
-      ArrayList<Pair<SootMethod, Value>> topPassArguments = new ArrayList<>();
-      //find the top pass argument for fragment value-> return list of Pair<SootMethod, Value>
-      processTopPassArguments(c, caller, fragment,s, topPassArguments);
-      Local classLocal = getClassLocal(c);
-      NNode parentReceiverNode = varNode(classLocal);
-      //foreach pair in the top pass arguments
-      for (Pair<SootMethod,Value> item: topPassArguments){
-        SootMethod topCaller = item.getO1();
-
-        Pair<Stmt, SootMethod> callSite =
-                new Pair<Stmt, SootMethod>(s, caller);
-        NReplaceFragmentOpNode replaceFragment = null;
-        NNode layoutIdNode = simpleNode(layoutIdVal);
-
-        //get the top fragment value
-        NVarNode fragmentNode = varNode((Local)item.getO2());
-        parentReceiverNode.addEdgeTo(fragmentNode);
-        NVarNode receiverNode = varNode(rev);
-        replaceFragment = new NReplaceFragmentOpNode(layoutIdNode, fragmentNode, parentReceiverNode, callSite, false );
-        SootClass fragmentClass = ((RefType) item.getO2().getType()).getSootClass();
-        fragmentNode(fragmentClass);
-        Logger.verb("ProcessFragment", "ReplaceFragmentOpNode created: "+ caller.getDeclaringClass() + " -> " + fragmentClass
-                + " -> " + layoutIdNode.toString() + " -> " + c.getName());
-        //FindViewById + AddView
-        NVarNode fragmentViewNode = fragmentsReturnViewMap.get(fragmentClass);
-        Logger.verb("ProcessFragment", "Return view: "+fragmentViewNode);
-        if (hier.isActivityClass(c))
-          activityNode(c).addEdgeTo(fragmentNode(fragmentClass));
-        else if(hier.isFragmentClass(c))
-          fragmentNode(c).addEdgeTo(fragmentNode(fragmentClass));
-        if (fragmentViewNode != null)
-        {
-          String fakeLocalName = nextFakeName();
-          NVarNode parentLayoutNode = varNode(Jimple.v().newLocal(nextFakeName(),Scene.v().getSootClass("android.widget.FrameLayout").getType()));
-          NFindView2OpNode findViewNode = new NFindView2OpNode(layoutIdNode, parentReceiverNode , parentLayoutNode, null, true);
-          allNNodes.add(findViewNode);
-          NAddView2OpNode addView2OpNode = new NAddView2OpNode(parentLayoutNode, fragmentViewNode, null, true);
-          allNNodes.add(addView2OpNode);
-
-          Logger.verb("ProcessFragment", "AddView2OpNode: "+addView2OpNode);
-        }
-
-        //Integrate Options Menu
-        integrateOptionsMenuNodeFromFragmentToActivity(fragmentClass, ((RefType) ((NVarNode) parentLocalNode).l.getType()).getSootClass() );
-        allReplaceFragmentNodes.add(replaceFragment);
-        addReplaceOpNodeArrayList.add(replaceFragment);
-      }
-    }
     return addReplaceOpNodeArrayList;
 
   }
@@ -5872,8 +6013,15 @@ public class Flowgraph implements MethodNames {
 
   }*/
   //Deal with ViewPager and Fragment
-  final SootClass viewPagerClass = Scene.v().getSootClass("android.support.v4.view.ViewPaper");
-  final SootClass FragmentPagerAdapter = Scene.v().getSootClass("android.support.v4.app.FragmentPagerAdapter");
+  final SootClass viewPagerClass1 = Scene.v().getSootClass("androidx.viewpager.widget.ViewPager");
+  final SootClass viewPagerClass2 = Scene.v().getSootClass("android.support.v4.view.ViewPaper");
+  final SootClass viewPagerClass3 = Scene.v().getSootClass("androidx.viewpager2.widget.ViewPager2");
+  final SootClass FragmentStatePagerAdapter1 = Scene.v().getSootClass("android.support.v4.app.FragmentStatePagerAdapter");
+  final SootClass FragmentStatePagerAdapter2 = Scene.v().getSootClass("android.support.v13.app.FragmentStatePagerAdapter");
+  final SootClass FragmentPagerAdapter1 = Scene.v().getSootClass("android.support.v4.app.FragmentPagerAdapter");
+  final SootClass FragmentPagerAdapter2 = Scene.v().getSootClass("android.support.v13.app.FragmentPagerAdapter");
+  final SootClass pagerAdapterClass1 = Scene.v().getSootClass("androidx.viewpager.widget.PagerAdapter");
+  final SootClass pagerAdapterClass2 = Scene.v().getSootClass(androidsupportv4 + ".view.PagerAdapter");
   Set<Stmt> viewPaperSetAdapterCalls = Sets.newHashSet();
 
 

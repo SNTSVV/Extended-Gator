@@ -1328,6 +1328,7 @@ jena.*
 jena.cmdline.*
 jersey.repackaged.*
 jet.runtime.*
+jcifs.*
 jitb.display.*
 jitb.errors.*
 jitb.events.*

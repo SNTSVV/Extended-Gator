@@ -128,14 +128,14 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
 
         if (isContainsGetIntent(callback))
         {
-            Logger.verb("GetIntent", "Callback: ${callback.signature}")
+            //Logger.verb("GetIntent", "Callback: ${callback.signature}")
             val outerClass:SootClass = getMostOuterClass(callback.declaringClass)
             if (GUIUserInteractionClient.guiAnalysisOutput!!.flowgraph.hier.isActivityClass(outerClass))
             {
-                Logger.verb("GetIntent", "Activity: ${outerClass.name}")
+                //Logger.verb("GetIntent", "Activity: ${outerClass.name}")
                 if (implicitIntentActivities.contains(outerClass))
                 {
-                    Logger.verb("GetIntent", "Process implicit intent: ${outerClass.name}")
+                    //Logger.verb("GetIntent", "Process implicit intent: ${outerClass.name}")
                     if (!intentCallingMethods.containsKey(callback.signature))
                     {
                         intentCallingMethods.put(callback.signature, HashSet() )
@@ -589,7 +589,7 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
                     asyncTaskCalls[asyncTaskClass!!] = ArrayList()
                 }
                 asyncTaskCalls[asyncTaskClass!!]!!.add(m)
-                //Logger.verb("DEBUG","${asyncTaskClass.name} <-- ${m.signature}")
+                Logger.verb("DEBUG","${asyncTaskClass.name} called by ${m.signature}")
             }
         }
     }

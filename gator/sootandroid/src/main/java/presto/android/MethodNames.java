@@ -161,7 +161,7 @@ public interface MethodNames {
   String onActivityStopSubSig = "void onStop()";
   String onActivityDestroySubSig = "void onDestroy()";
   String activityOnNewIntentSubSig = "void onNewIntent(android.content.Intent)";
-
+  String onViewCreatedSubSig = "void onViewCreated(android.view.View,android.os.Bundle)";
 
 
   String onListItemClickSubSig = "void onListItemClick(android.widget.ListView,android.view.View,int,long)";
@@ -302,6 +302,12 @@ public interface MethodNames {
   String fragmentTransaction3ReplaceSubSig3 = fragmentTransactionClass3 + " replace(int,"+ fragmentClass3 +",android.os.Bundle)";
   String fragmentTransaction3ReplaceSubSig4 = fragmentTransactionClass3 + " replace(int,"+ fragmentClass3 +",android.os.Bundle,java.lang.String)";
 
+  //VieưPager
+  String viewPagerSetAdapterSubSig1 = "void setAdapter(" + "androidx.viewpager.widget.PagerAdapter" + ")";
+  String viewPagerSetAdapterSubSig2 = "void setAdapter(" + "android.support.v4.view.PagerAdapter" + ")";
+  String pagerAdapterGetItemSubSig1 = fragmentClass1 + " getItem(int)";
+  String pagerAdapterGetItemSubSig2 = fragmentClass2 + " getItem(int)";
+  String pagerAdapterGetItemSubSig3 = fragmentClass3 + " getItem(int)";
   //recycleview
   String recycleViewsetAdapterSubSig2 = "void setAdapter(" + "androidx.recyclerview.widget.RecyclerView$Adapter" +")";
   String recycleViewsetAdapterSubSig1 = "void setAdapter(" + "android.support.v7.widget.RecyclerView$Adapter" +")";

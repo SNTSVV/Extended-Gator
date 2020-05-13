@@ -36,6 +36,10 @@ public class Debug {
   public static final String DUMP_TEST_CASE_DEBUG = "dump_test_case_debug";
 
   public static final String DIFF_TEST_CASE_DEBUG = "diff_test_case_debug";
+
+  public static final String VIEWPAGER_DEBUG = "viewPager_debug";
+
+  public static final String FRAGMENT_DEBUG = "fragment_debug";
   private String debugFileName;
 
   private File debugFile;

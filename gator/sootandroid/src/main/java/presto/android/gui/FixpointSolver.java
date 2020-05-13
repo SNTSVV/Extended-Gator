@@ -1638,7 +1638,7 @@ public class FixpointSolver {
       //      }
       return false;
     }
-    Boolean debugCondition = node.toString().contains("PlayerActivity");
+    Boolean debugCondition = node.toString().contains("MainActivity");
     if (Configs.debugCodes.contains(Debug.WORKLIST_DEBUG)) {
       Logger.verb(this.getClass().getSimpleName(), "--- solving " + node);
     }
@@ -1838,13 +1838,13 @@ public class FixpointSolver {
     boolean changed = false;
     Set<NNode> parentSet = solutionReceivers.get(node);
     if (parentSet == null || parentSet.isEmpty()) {
-      //Logger.verb("DEBUG", "processAddView2: parentSet is empty");
+      Logger.verb("DEBUG", "processAddView2: parentSet is empty");
       return false;
     }
 
     Set<NNode> childSet = solutionParameters.get(node);
     if (childSet == null || childSet.isEmpty()) {
-      //Logger.verb("DEBUG", "processAddView2: childSet is empty");
+      Logger.verb("DEBUG", "processAddView2: childSet is empty");
       return false;
     }
     //Logger.verb("DEBUG","ProcessAddView2: " + node.toString());
@@ -1857,7 +1857,7 @@ public class FixpointSolver {
 
     Set<NWindowNode> windows = NWindowNode.windowNodes;
     for (NWindowNode window: windows){
-      //Logger.verb("DEBUG","window: " + window.toString());
+      Logger.verb("DEBUG","window: " + window.toString());
       Set<NNode> reachableParentSet = new HashSet<>();
       Set<NNode> reachableChildSet = new HashSet<>();
       for (NNode parent: parentSet){
@@ -1897,16 +1897,16 @@ public class FixpointSolver {
           reachableChildSet.add(child);
       }
       if (reachableParentSet.isEmpty()) {
-        //Logger.verb("DEBUG", "processAddView2: reachableParentSet is empty");
+        Logger.verb("DEBUG", "processAddView2: reachableParentSet is empty");
         continue;
       }
 
       if (reachableChildSet.isEmpty()) {
-        //Logger.verb("DEBUG", "processAddView2: reachableChildSet is empty");
+        Logger.verb("DEBUG", "processAddView2: reachableChildSet is empty");
         continue;
       }
       for (NNode parent : reachableParentSet) {
-        //Logger.verb("DEBUG", "Parent node: "+parent.toString());
+        Logger.verb("DEBUG", "Parent node: "+parent.toString());
         for (NNode child : reachableChildSet) {
           if (parent == child) {
 

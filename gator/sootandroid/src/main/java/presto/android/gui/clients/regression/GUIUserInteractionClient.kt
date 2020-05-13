@@ -101,12 +101,10 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         guiAnalysisOutput = output
         Logger.verb("INFO", "GUIUserInteractionClient start")
         //get all active activities
-
-
         initWTG(output)
         processIntentFilter()
         val apkPath = Paths.get(Configs.project)
-        val packageFile = Files.list(apkPath.parent).filter { it.fileName.toString().contains(output.appPackageName) && it.fileName.toString().endsWith("-package.txt") }.findFirst().orElse(null)
+        //val packageFile = Files.list(apkPath.parent).filter { it.fileName.toString().contains(output.appPackageName) && it.fileName.toString().endsWith("-package.txt") }.findFirst().orElse(null)
         val apkName = if (Configs.appPackage.equals("")) {
             output.appPackageName
         } else {
@@ -738,7 +736,7 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
 //            outputMap["allInflateNodes"] = allInflateNodes
 //            outputMap["allFragmentNodes"] = allFragmentNodes
         outputMap["unhandledMethods"] = notAppearInTargetCallingMethods
-        //outputMap["unreachableMethods"] = unreachableMethods
+        outputMap["unreachableMethods"] = unreachableMethods
         outputMap["unreachableModifiedMethods"] = produceUnreachableModifiedMethodsSimple()
         outputMap["unhandleModifiedMethod"] = produceUnhandledModifiedMethods()
         outputMap["allUnreachedActivity"] = produceUnreachedActivity()
