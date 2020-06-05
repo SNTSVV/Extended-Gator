@@ -88,7 +88,11 @@ public class AnalysisEntrypoint {
       DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
       Document doc = dBuilder.parse(fn);
       Node root = doc.getElementsByTagName("manifest").item(0);
-      appPkg = root.getAttributes().getNamedItem("package").getTextContent().trim();
+      if (Configs.appPackage != "") {
+        appPkg = Configs.appPackage;
+      } else {
+        appPkg = root.getAttributes().getNamedItem("package").getTextContent().trim();
+      }
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
