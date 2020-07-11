@@ -162,7 +162,7 @@ brut.apktool.*
 brut.common.*
 brut.directory.*
 brut.util.*
-butterknife.*
+q
 butterknife.internal.*
 c.*
 c.api.*

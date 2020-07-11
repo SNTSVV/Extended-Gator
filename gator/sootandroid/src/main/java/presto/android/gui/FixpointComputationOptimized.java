@@ -15,7 +15,9 @@ import presto.android.Debug;
 import presto.android.Logger;
 import presto.android.MultiMapUtil;
 import presto.android.gui.graph.*;
+import soot.SootClass;
 import soot.jimple.toolkits.scalar.NopEliminator;
+import sun.rmi.runtime.Log;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
@@ -33,7 +35,16 @@ import java.util.Set;
  */
 public class FixpointComputationOptimized {
     static void optimizedComputePathsFromViewProducerToViewConsumer(FixpointSolver solver) {
-
+        for (NActivityNode activityNode: solver.flowgraph.butterKnifeActivityRootBinding.keySet()) {
+            if (!solver.activityRoots.containsKey(activityNode)){
+                continue;
+            }
+            NNode bindingRoot = solver.flowgraph.butterKnifeActivityRootBinding.get(activityNode);
+            for (NNode root: solver.activityRoots.get(activityNode)) {
+                root.addEdgeTo(bindingRoot);
+                Logger.verb("ButterKnife", String.format("Activity %s binding: root %s --> view %s", activityNode.c,root,bindingRoot));
+            }
+        }
         for (NNode source : solver.flowgraph.allNNodes) {
 
             Set<NNode> reachables = null;
@@ -191,12 +202,12 @@ public class FixpointComputationOptimized {
                 if (!(target instanceof NOpNode)) {
                     continue;
                 }
-                Logger.verb("windowReachability","reachable: "+target);
                 NOpNode opNode = (NOpNode) target;
                 if ((opNode instanceof NInflate2OpNode
                         || opNode instanceof NAddView1OpNode
                         || opNode instanceof NFindView2OpNode)
                         && reachables.contains(opNode.getReceiver())) {
+                  Logger.verb("windowReachability","reachable: "+target);
                     MultiMapUtil.addKeyAndHashSetElement(solver.reachingWindows, opNode, windowNode);
                 } else if (opNode instanceof NSetListenerOpNode
                         && reachables.contains(opNode.getParameter())) {

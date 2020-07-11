@@ -28,6 +28,8 @@ import presto.android.xml.XMLParser;
 import soot.*;
 import soot.jimple.*;
 import soot.jimple.internal.JCastExpr;
+import soot.jimple.internal.JInstanceFieldRef;
+import soot.jimple.internal.JNewExpr;
 import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Sources;
 import soot.tagkit.IntegerConstantValueTag;
@@ -139,6 +141,8 @@ public class Flowgraph implements MethodNames {
 
     processFlowFromSetListenerToEventHandlers();
 
+    processButterKnifeViewBinding();
+
   }
   public void buildIdNodes() {
     // Nodes for all layout ids, menu ids, widget ids, and string ids
@@ -198,7 +202,7 @@ public class Flowgraph implements MethodNames {
       Local thisLocal = jimpleUtil.thisLocal(callback);
       NActivityNode actNode = activityNode(c);
       actNode.addEdgeTo(varNode(thisLocal), null);
-      //Logger.verb("DEBUG", "Edge: From "+actNode.toString()+ " - To: "+callback.getSignature());
+      //Logger.verb("processActivityCallBack", "Edge: From "+actNode.toString()+ " - To: "+callback.getSignature());
     }
   }
 
@@ -380,14 +384,16 @@ public class Flowgraph implements MethodNames {
         if (!currentMethod.isConcrete()) {
           continue;
         }
-        /*if (hier.isActivityClass(c))
+        //Debug
+        if (currentMethod.getDeclaringClass().getName().contains("OnboardingFragment_ViewBinding"))
         {
           Logger.verb("PrintMethod", currentMethod.getSignature());
           Iterator<Unit> printstmts=  currentMethod.retrieveActiveBody().getUnits().snapshotIterator();
           while (printstmts.hasNext()) {
             Logger.verb("PrintMethod", printstmts.next().toString());
           }
-        }*/
+        }
+        //End debug
         NNode trackingFieldNode = null;
         numMtd += 1;
         Body b = currentMethod.retrieveActiveBody();
@@ -522,6 +528,8 @@ public class Flowgraph implements MethodNames {
 
           // filter based on types
           if (!jimpleUtil.interesting(lhs.getType())) {
+            //Logger.verb("Flowgraph", "Not interesting stmt: "+currentStmt);
+            //Logger.verb("Flowgraph", "LeftOp type: "+lhs.getType());
             continue;
           }
           Value rhs = ds.getRightOp();
@@ -555,6 +563,11 @@ public class Flowgraph implements MethodNames {
           }
           // create the flow edge
           if (nn_lhs != null && nn_rhs != null) {
+            /*if (nn_lhs instanceof NFieldNode) {
+              nn_lhs.addEdgeTo(nn_rhs,currentStmt);
+              //Logger.verb("Flowgraph", "LHS is NFieldNode stmt: "+currentStmt);
+            } else {
+            }*/
             nn_rhs.addEdgeTo(nn_lhs, currentStmt);
             if (nn_rhs instanceof NAllocNode) {
               NAllocNode an = (NAllocNode) nn_rhs;
@@ -574,6 +587,7 @@ public class Flowgraph implements MethodNames {
                 }
               }
             }
+
           }
         } // all statements in the method body
       } // all methods in an application class
@@ -1051,7 +1065,7 @@ public class Flowgraph implements MethodNames {
     }
 
     SootClass callerClass = caller.getDeclaringClass();
-    if ( caller.getSubSignature().equals(onCreateView) ){
+    if ( caller.getSubSignature().equals(onCreateView1) ){
       SootClass fragmentClass = caller.getDeclaringClass();
       if (hier.isFragmentClass(fragmentClass))
       {
@@ -2385,8 +2399,95 @@ public class Flowgraph implements MethodNames {
     if (recordViewPagerSetAdapterCalls(s)) {
       return;
     }
+    if (recordButterKnifeViewBinding(s)) {
+      return;
+    }
   }
 
+  HashMap<SootClass, NNode> recordedButterKnifeViewBinding = new HashMap<>();
+  HashMap<NActivityNode,NNode> butterKnifeActivityRootBinding = new HashMap<>();
+  private boolean recordButterKnifeViewBinding(Stmt s) {
+    if (!s.containsInvokeExpr())
+      return false;
+    InvokeExpr ie = s.getInvokeExpr();
+    SootMethod callee = ie.getMethod();
+    if (callee.getDeclaringClass().getName() != "butterknife.ButterKnife")
+      return false;
+    Logger.verb("ButterKnife", String.format("Callee: %s in %s",callee,s));
+    Logger.verb("ButterKnife", String.format("Subsignature: %s",callee.getSubSignature()));
+    if (callee.getSubSignature().equals("butterknife.Unbinder bind(java.lang.Object,android.view.View)")) {
+      Value target = ie.getArg(0);
+      NNode targetNode = simpleNode(target);
+      Value view = ie.getArg(1);
+      NNode viewNode = simpleNode(view);
+      recordedButterKnifeViewBinding.put(((RefType) target.getType()).getSootClass(),viewNode);
+      Logger.verb("ButterKnife", "Binding invoked: " + s);
+      return true;
+    } else if (callee.getSubSignature().equals("butterknife.Unbinder bind(android.app.Activity)")){
+      Value target = ie.getArg(0);
+      NNode targetNode = simpleNode(target);
+      recordedButterKnifeViewBinding.put(((RefType) target.getType()).getSootClass(),targetNode);
+      Logger.verb("ButterKnife", "Binding invoked: " + s);
+
+    } else if (callee.getSubSignature().equals("butterknife.Unbinder bind(android.view.View)")) {
+      Value target = ie.getArg(0);
+      NNode targetNode = simpleNode(target);
+      recordedButterKnifeViewBinding.put(((RefType) target.getType()).getSootClass(),targetNode);
+      Logger.verb("ButterKnife", "Binding invoked: " + s);
+    } else{
+      Logger.verb("ButterKnife", "Not supported bind method: " + s);
+    }
+    return false;
+  }
+
+  private void processButterKnifeViewBinding() {
+    HashMap<SootClass, NNode> viewBindingClass_RootView =  new HashMap<>();
+    for (SootClass c: hier.appClasses) {
+      if (!c.implementsInterface("butterknife.Unbinder")) {
+        continue;
+      }
+
+      HashSet<SootMethod> methodConstructors = new HashSet<>();
+      for (SootMethod m: c.getMethods()) {
+        if (!m.isConstructor())
+          continue;
+        if (m.getParameterCount() == 2) {
+          methodConstructors.add(m);
+          break;
+        }
+      }
+      if (methodConstructors.isEmpty())
+        continue;
+      for (SootMethod m: methodConstructors) {
+        Local target = jimpleUtil.localForNthParameter(m, 1);
+        if (!(target.getType() instanceof RefType))
+          continue;
+        Local root_view = jimpleUtil.localForNthParameter(m, 2);
+        NNode targetNode = simpleNode(target);
+        NNode rootViewNode = simpleNode(root_view);
+        RefType targetType = (RefType) target.getType();
+        viewBindingClass_RootView.put(targetType.getSootClass(), rootViewNode);
+        Logger.verb("ButterKnife", String.format("ViewBinding class %s -> constructor %s", targetType.getSootClass(), m));
+      }
+    }
+    for (SootClass key: recordedButterKnifeViewBinding.keySet()) {
+      if (!viewBindingClass_RootView.containsKey(key)){
+        Logger.verb("ButterKnife", "No viewbinding constructor found for "+ key);
+        continue;
+      }
+      NNode rootViewParam = viewBindingClass_RootView.get(key);
+      if (hier.isActivityClass(key)) {
+        NActivityNode activityNode = activityNode(key);
+        butterKnifeActivityRootBinding.put(activityNode,rootViewParam);
+        Logger.verb("ButterKnife", String.format("Viewbinding for %s -- rootViewParam %s", key, rootViewParam));
+      } else {
+        NNode actualView = recordedButterKnifeViewBinding.get(key);
+        actualView.addEdgeTo(rootViewParam);
+        //Debug ButterKnife
+        Logger.verb("ButterKnife", String.format("Viewbinding for %s: actualView %s --> rootViewParam %s", key, actualView, rootViewParam));
+      }
+    }
+  }
   //--- List views and adapters
 
   // TODO(tony): figure if it is important to handle AdapterView that are not
@@ -2908,7 +3009,8 @@ public class Flowgraph implements MethodNames {
       {
         concreteType = hier.matchForVirtualDispatch(getViewSubSig,
                 ((NObjectNode) src).getClassType());
-        getView = concreteType.getMethod(getViewSubSig);
+        if (concreteType != null)
+          getView = concreteType.getMethod(getViewSubSig);
       }
       if (getView == null)
         return;
@@ -5538,12 +5640,12 @@ public class Flowgraph implements MethodNames {
   }
 
   public NVarNode processFragmentOnCreateViewReturnStm(Stmt s){
-    SootMethod caller = jimpleUtil.lookup(s);
-    SootClass c = caller.getDeclaringClass();
-    if (!hier.isFragmentClass(c) || !caller.getSubSignature().equals(onCreateView)){
+    if (!(s instanceof ReturnStmt)){
       return null;
     }
-    if (!(s instanceof ReturnStmt)){
+    SootMethod caller = jimpleUtil.lookup(s);
+    SootClass c = caller.getDeclaringClass();
+    if (!hier.isFragmentClass(c) || !caller.getSubSignature().equals(onCreateView1)){
       return null;
     }
     Value retval = ((ReturnStmt) s).getOp();
@@ -5709,6 +5811,14 @@ public class Flowgraph implements MethodNames {
 
         //FindViewById + AddView
         NVarNode fragmentViewNode = fragmentsReturnViewMap.get(fragmentClass);
+        if (fragmentViewNode == null) {
+          //incase fragment extends from an another fragment, get view from its nearest ancestor
+          SootClass ancestor = hier.matchForVirtualDispatch(onCreateView1,fragmentClass);
+          if (ancestor != null) {
+            fragmentViewNode = fragmentsReturnViewMap.get(ancestor);
+          }
+
+        }
         if (Configs.debugCodes.contains(Debug.FRAGMENT_DEBUG)) {
           Logger.verb("ProcessFragment", fragmentOpNode.getClass() + " created: "+ c.getName() + " -> " + fragmentClass
                   + " -> " + layoutIdNode.toString());
@@ -5784,6 +5894,7 @@ public class Flowgraph implements MethodNames {
     if (caller.getActiveBody().getParameterLocals().contains(checkValue))
     {
       //Logger.verb("[DEBUG]",String.format("%s is passed from parameter of %s",checkValue.toString(),caller.getSignature()));
+
       //This fragment local is passed by argument so we need to find the top argument pass
       CallGraph cg = Scene.v().getCallGraph();
       //val sootMethod = Scene.v().getMethod(callback.signature)
@@ -5862,11 +5973,30 @@ public class Flowgraph implements MethodNames {
       return false;
     }
     Stmt lastAssignStmt = assignStmtList.get(assignStmtList.size()-1);
-    if (lastAssignStmt.containsInvokeExpr() && lastAssignStmt.getInvokeExpr().getMethod().hasActiveBody())
+    if (lastAssignStmt.containsInvokeExpr() )
     {
-        Logger.verb("ProcessFragment",String.format("Value %s is return by invoking method %s",checkValue,lastAssignStmt.getInvokeExpr().getMethod()));
-        processReturnValue(activityClass, caller, lastAssignStmt.getInvokeExpr().getMethod(),lastAssignStmt,topPassArgumentResults);
+      //get override method
+      SootMethod invokedMethod = lastAssignStmt.getInvokeExpr().getMethod();
+      SootClass virtualDispatchClass = hier.matchForVirtualDispatch(invokedMethod.getSubSignature(),activityClass);
+      if (virtualDispatchClass!=null) {
+        //TODO
+        SootMethod overrideMethod = virtualDispatchClass.getMethod(invokedMethod.getSubSignature());
+        Logger.verb("ProcessFragment", String.format("Value %s is return by invoking method %s", checkValue, overrideMethod));
+        processReturnValue(activityClass, caller, overrideMethod, lastAssignStmt, topPassArgumentResults);
         return true;
+      } else {
+        if (lastAssignStmt.getInvokeExpr().getMethod().hasActiveBody()) {
+          Logger.verb("ProcessFragment", String.format("Value %s is return by invoking method %s", checkValue, lastAssignStmt.getInvokeExpr().getMethod()));
+          processReturnValue(activityClass, caller, lastAssignStmt.getInvokeExpr().getMethod(), lastAssignStmt, topPassArgumentResults);
+          return true;
+        } else {
+
+          Logger.verb("ProcessFragment", String.format("Value %s is return by virtual method %s", checkValue, lastAssignStmt.getInvokeExpr().getMethod()));
+          return false;
+        }
+      }
+
+
     }
     else
     {
@@ -5874,17 +6004,33 @@ public class Flowgraph implements MethodNames {
       Value rv = ((DefinitionStmt)lastAssignStmt).getRightOp();
       if (rv instanceof JCastExpr)
       {
+        SootClass originType = ((RefType) ((JCastExpr) rv).getOp().getType()).getSootClass();
+        Logger.verb("ProcessFragment",String.format("Right Op is JCastExprOriginal. Original type: %s",originType.getName()));
         processTopPassArguments(activityClass,caller,((JCastExpr) rv).getOp(),lastAssignStmt,topPassArgumentResults);
       }
       else
       {
-        if (rv instanceof Local)
-          processTopPassArguments(activityClass,caller,rv,lastAssignStmt,topPassArgumentResults);
-        else
-        {
-          Logger.verb("ProcessFragment",String.format("Value %s",checkValue));
+        if (rv instanceof Local) {
+          Logger.verb("ProcessFragment",String.format("Right op is Local. Value type: %s",((RefType)(rv.getType())).getSootClass().getName()));
+          topPassArgumentResults.add(new Pair(caller, checkValue));
+        }
+        else if (rv instanceof AbstractSootFieldRef) {
+          Logger.verb("ProcessFragment", String.format("Right op is AbstractSootFieldRef. Value type: %s", ((AbstractSootFieldRef) rv).resolve().getType()));
+          topPassArgumentResults.add(new Pair(caller, ((DefinitionStmt) lastAssignStmt).getLeftOp()));
+          return false;
+
+        } else  if (rv instanceof JInstanceFieldRef) {
+        SootFieldRef fieldRef = ((JInstanceFieldRef) rv).getFieldRef();
+        Logger.verb("ProcessFragment", String.format("Value type: %s", fieldRef.resolve().getType()));
+        topPassArgumentResults.add(new Pair(caller, ((DefinitionStmt) lastAssignStmt).getLeftOp()));
+      } else if (rv instanceof JNewExpr){
+
           topPassArgumentResults.add(new Pair(caller, checkValue));
           return false;
+        }
+        else {
+          Logger.verb("ProcessFragment",String.format("Right Op: %s",rv.toString()));
+          processTopPassArguments(activityClass, caller, rv, lastAssignStmt, topPassArgumentResults);
         }
       }
     }
@@ -5937,11 +6083,15 @@ public class Flowgraph implements MethodNames {
   private void getInvokeExprAndProcessTopPassArguments(SootClass activityClass, SootMethod caller, Value fragment, SootMethod callback, Stmt s, InvokeExpr invokeExpr,ArrayList<Pair<SootMethod,Value>> topPassArgumentResults ) {
     if (invokeExpr.getMethod() == caller)
     {
-      //Logger.verb("DEBUG",String.format("Value type: %s",fragment.getType()));
+
+      Logger.verb("ProcessFragment",String.format("Value type: %s",fragment.getType()));
       List<Value> args = invokeExpr.getArgs();
       for (Value v:args) {
-        //Logger.verb("DEBUG",String.format("Parameter type: %s",v.getType()));
-        if (v.getType() == fragment.getType())
+        Logger.verb("ProcessFragment",String.format("Parameter type: %s",v.getType()));
+        if (hier.isSubclassOf(
+                ((RefType)v.getType()).getSootClass(),
+                ((RefType)fragment.getType()).getSootClass()
+        ))
           {
             processTopPassArguments(activityClass, callback, v, s, topPassArgumentResults);
             break;
@@ -5990,7 +6140,7 @@ public class Flowgraph implements MethodNames {
   String fragmentOnCreateView1 = "<android.support.v4.app.Fragment: android.view.View onCreateView(android.view.LayoutInflater,android.view.ViewGroup,android.os.Bundle)>";
   String fragmentOnCreateView2 = "<android.app.Fragment: android.view.View onCreateView(android.view.LayoutInflater,android.view.ViewGroup,android.os.Bundle)>";
   String fragmentOnCreateView3 = "<androidx.app.Fragment: android.view.View onCreateView(android.view.LayoutInflater,android.view.ViewGroup,android.os.Bundle)>";
-  String onCreateView = "android.view.View onCreateView(android.view.LayoutInflater,android.view.ViewGroup,android.os.Bundle)";
+  String onCreateView1 = "android.view.View onCreateView(android.view.LayoutInflater,android.view.ViewGroup,android.os.Bundle)";
   Map<NNode, SootClass> allFragmentLayoutsMap= Maps.newHashMap();
   Map<NVarNode, SootClass> inflateViewsAndFragmentMap = Maps.newHashMap();
   Map<SootClass, NVarNode> fragmentsReturnViewMap = Maps.newHashMap();

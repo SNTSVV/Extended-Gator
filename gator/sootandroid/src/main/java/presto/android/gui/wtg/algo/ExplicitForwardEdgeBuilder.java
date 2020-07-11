@@ -148,7 +148,7 @@ public class ExplicitForwardEdgeBuilder implements Algorithm {
               || window instanceof NMenuNode)) {
         Logger.err(getClass().getSimpleName(), "unexpected window type: " + window);
       }
-        Logger.verb("AnalyzeCallback", window.toString());
+        //Logger.verb("AnalyzeCallback", window.toString());
       Collection<NObjectNode> underneathViews = guiHierarchy.get(window);
 //      Logger.verb("AnalyzeCallback", "getting guiHierachy");
       Set<NObjectNode> allViews = Sets.newHashSet(underneathViews);
@@ -172,8 +172,8 @@ public class ExplicitForwardEdgeBuilder implements Algorithm {
         }
       }
     }
-    Logger.verb("AnalyzeCallback", "CFGScheduler begins");
-    Logger.verb("AnalyzeCallback", "InputSet: " + inputSet.size());
+    //Logger.verb("AnalyzeCallback", "CFGScheduler begins");
+    //Logger.verb("AnalyzeCallback", "InputSet: " + inputSet.size());
     CFGScheduler scheduler = new CFGScheduler(guiOutput, flowgraphRebuilder);
     return scheduler.schedule(inputSet);
   }
@@ -499,7 +499,7 @@ public class ExplicitForwardEdgeBuilder implements Algorithm {
     // specify the stmts we are interested: showDialog, startActivity and
     // openMenu
     for (NObjectNode view : allViews) {
-      Logger.verb("buildExplicitForwardEdges", view.toString() );
+      //Logger.verb("buildExplicitForwardEdges", view.toString() );
         for (HandlerBean bean : viewToHandlers.get(view)) {
         NObjectNode guiWidget = bean.getGUIWidget();
         EventType event = bean.getEvent();

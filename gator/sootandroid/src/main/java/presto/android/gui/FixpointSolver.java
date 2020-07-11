@@ -598,13 +598,13 @@ public class FixpointSolver {
             reachingViewIds.put(opNode, views);
           }
           views.add(viewIdNode);
-          Logger.verb("viewIdReachability", viewIdNode.toString() + " --> " + opNode.toString());
+          //Logger.verb("viewIdReachability", viewIdNode.toString() + " --> " + opNode.toString());
         } else if (opNode instanceof NInflate2OpNode) {
           // This is basically activity.setContentView(viewId). Weirdly, this
           // seems to be allowed, but it does not affect our analysis. Ignore it
           // for now.
 
-          Logger.trace(this.getClass().getSimpleName(), "viewId " + viewIdNode + " used for " + opNode);
+          //Logger.trace(this.getClass().getSimpleName(), "viewId " + viewIdNode + " used for " + opNode);
 
         } else {
           //It seems like there are other cases similar to the one mentioned,
@@ -657,6 +657,11 @@ public class FixpointSolver {
             fieldOpReceivers.put((NFieldNode) reachable, new HashSet<>());
           HashSet<NOpNode> assigments =fieldAssigments.get(reachable);
           assigments.add((NOpNode) opNode);
+          //Debug
+//          if (((NFieldNode) reachable).f.getDeclaringClass().getName().contains("OnboardingFragment")) {
+//            SootField field = ((NFieldNode) reachable).f ;
+//            //Logger.verb("fieldReachability",String.format( "field %s <- %s",field,opNode));
+//          }
         }
       }
     }
@@ -673,9 +678,15 @@ public class FixpointSolver {
           continue;
         if (!(fieldNode.f.getType() instanceof RefType))
           continue;
-        SootClass fieldType = ((RefType) ((NFieldNode) fieldNode).f.getType()).getSootClass();
+        SootClass fieldType = ((RefType) fieldNode.f.getType()).getSootClass();
         if (!hier.isGUIClass(fieldType))
           continue;
+//        if (fieldNode.f.getDeclaringClass().getName().contains("OnboardingFragment")) {
+//          Logger.verb("fieldReachability",fieldNode.toString() );
+//        } else
+//        {
+//          Logger.verb("fieldReachability",fieldNode.toString() );
+//        }
         if (!fieldOpReceivers.containsKey(fieldNode))
           fieldOpReceivers.put(fieldNode, new HashSet<>());
         HashSet<NSetListenerOpNode> ops = fieldOpReceivers.get(fieldNode);
@@ -685,10 +696,16 @@ public class FixpointSolver {
           {
             if (reachables.contains(((NSetListenerOpNode) target).getReceiver()))
               ops.add((NSetListenerOpNode) target);
-              //Logger.verb("ProcessNFieldNode",fieldNode.toString() + " --> set listener: "+target.toString() + " - lhs: " +((NSetListenerOpNode) target).getReceiver().toString());
+//            if (fieldNode.f.getDeclaringClass().getName().contains("OnboardingFragment")) {
+//              Logger.verb("fieldReachability",fieldNode.toString() + " --> set listener: "+target.toString() + " - lhs: " +((NSetListenerOpNode) target).getReceiver().toString());
+//            } else {
+//              Logger.verb("fieldReachability",fieldNode.toString() + " --> set listener: "+target.toString() + " - lhs: " +((NSetListenerOpNode) target).getReceiver().toString());
+//            }
+
           }
         }
     }
+
     for (NFieldNode fieldNode: fieldAssigments.keySet())
     {
       if (fieldAssigments.get(fieldNode).isEmpty())
@@ -708,6 +725,7 @@ public class FixpointSolver {
         }
         assignmentGroupByMethod.get(method).add(assignment);
         stmtAssignment.put(stmt, assignment);
+        //bestSuitAssignment.add(assignment);
       }
 
       for (SootMethod method: assignmentGroupByMethod.keySet() )
@@ -733,6 +751,7 @@ public class FixpointSolver {
           bestSuitAssignment.add(stmtAssignment.get(lastStatement));
       }
 
+
       for (NSetListenerOpNode setListenerNode: fieldOpReceivers.get(fieldNode))
       {
         for (NNode assignment: bestSuitAssignment)
@@ -745,7 +764,6 @@ public class FixpointSolver {
                     .addEdgeTo(setListenerNode.getReceiver());
             ((NOpNode) assignment).getLhs()
                     .addEdgeTo(setListenerNode.getParameter());
-
             Logger.verb("ProcessNFieldNode", fieldNode.toString() + " --> target: " + assignment.toString() + " --> Receiver: " + setListenerNode.toString());
           }
         }
@@ -955,6 +973,7 @@ public class FixpointSolver {
             Logger.verb("DEBUG", "Do Layout Inflate " + opNode +" for: "+ layoutIdNode + " for window "+ windowNode.c);
             NInflNode root = doLayoutInflate(layoutIdNode.getIdValue(), windowNode, opNode.getReceiver());
             if (root == null) {
+              Logger.verb("DEBUG", "Root is null");
               continue;
             }
 
@@ -1178,7 +1197,7 @@ public class FixpointSolver {
       if (!(n instanceof NOpNode)) {
         continue;
       }
-      Logger.verb("InflateNode", "Reachable node: "+ n.toString());
+      //Logger.verb("InflateNode", "Reachable node: "+ n.toString());
       NOpNode opNode = (NOpNode) n;
       if (opNode.hasParameter() && !(windowReachables.contains(opNode.getParameter())))
         continue;
@@ -1320,6 +1339,10 @@ public class FixpointSolver {
     LinkedList<NNode> nodeWorklist = Lists.newLinkedList();
     worklist.add(root);
     nodeWorklist.add(rootparent);
+    Boolean debug = false;
+    if (layoutId == 2131492893) {
+      debug = true;
+    }
     while (!worklist.isEmpty()) {
       AndroidView v = worklist.remove();
       NNode parent = nodeWorklist.remove();
@@ -1346,10 +1369,11 @@ public class FixpointSolver {
         NVarNode lhs = flowgraph.varNode(jimpleUtil.thisLocal(target));
         vNode.addEdgeTo(lhs);
       }
-      /*if (layoutId == 2131492897)
+
+      if (debug)
       {
         Logger.verb("DoLayoutInflate", vNode.toString());
-      }*/
+      }
       // propagate to receiver and parameter due to the connect to <this>
       if (rootparent!=null)
       {
@@ -1359,31 +1383,39 @@ public class FixpointSolver {
         inflNodeToReceiverAndParameter(vNode);
       }
 
-
+      //Logger.verb("DoLayoutInflate", "Root: "+ vNode.toString());
       if (root == v) {
-        /*if (layoutId == 2131492897)
+        if (debug)
         {
           Logger.verb("DoLayoutInflate", "Root: "+ vNode.toString());
-        }*/
+        }
         rootNode = vNode;
       }
       Integer widgetId = v.getId();
-      /*if (layoutId == 2131492897)
+
+      if (debug)
       {
         Logger.verb("DoLayoutInflate", "WidgetId: "+ widgetId);
-      }*/
+      }
+
       if (flowgraph.allNWidgetIdNodes.containsKey(widgetId)) {
 
         vNode.idNode = flowgraph.allNWidgetIdNodes.get(widgetId);
-      /*  if (layoutId == 2131492897)
+
+        if (debug)
         {
           Logger.verb("DoLayoutInflate", "IdNode: "+ vNode.idNode.toString());
-        }*/
+        }
+
       } else if (widgetId != null) {
         throw new RuntimeException();
       }
-      if (parent != null && parentContainView(parent, vNode))
+      if (parent != null && parentContainView(parent, vNode)) {
+        if (debug) {
+          Logger.verb("DoLayoutInflate", String.format("Parent %s contain view %s",parent,vNode));
+        }
         continue;
+      }
       String text = v.getText();
       if (text != null) {
         // FIXME(tony): we have converted the string ahead of time, and string
@@ -1414,7 +1446,7 @@ public class FixpointSolver {
   private boolean parentContainView(NNode parent, NInflNode vNode) {
     if (parent instanceof NInflNode)
     {
-      if (((NInflNode) parent).c == vNode.c && parent.idNode == vNode.idNode)
+      if (((NInflNode) parent).c == vNode.c && parent.id == vNode.id)
         return true;
     }
     Iterator<NNode> ancestors = parent.getParents();
@@ -1425,7 +1457,7 @@ public class FixpointSolver {
       {
         continue;
       }
-      if (((NInflNode) ancestor).c == vNode.c && ancestor.idNode == vNode.idNode)
+      if (((NInflNode) ancestor).c == vNode.c && ancestor.id == vNode.id)
       {
         return true;
       }
@@ -1572,7 +1604,7 @@ public class FixpointSolver {
       }
      // Logger.verb("DEBUG","[FixpointSolver] NAddView2OpNode size: "+NOpNode.getNodes(NAddView2OpNode.class).size());
       for (NOpNode addView2 : NOpNode.getNodes(NAddView2OpNode.class)) {
-        //Logger.verb("DEBUG", "Start processAddView2 -> "+addView2);
+        Logger.verb("DEBUG", "Start processAddView2 -> "+addView2);
         if (processAddView2((NAddView2OpNode) addView2)) {
           changed = true;
         }
@@ -1685,7 +1717,7 @@ public class FixpointSolver {
 
   // FindView2: lhs = act/dialog.findViewById(id)
   boolean processFindView2(NFindView2OpNode node) {
-    Logger.verb("DEBUG", "[FixpointSolver] Process : " + node.toString() );
+    //Logger.verb("DEBUG", "[FixpointSolver] Process : " + node.toString() );
     Set<NIdNode> viewIds = reachingViewIds.get(node);
     if (viewIds == null || viewIds.isEmpty()) {
 
@@ -1693,7 +1725,7 @@ public class FixpointSolver {
 
       return false;
     }
-    Logger.verb("processFindView2", node.toString() );
+    //Logger.verb("processFindView2", node.toString() );
 //    Boolean debugCondition = node.callSite != null && node.callSite.getO2().getDeclaringClass().getName().contains("HistoryActivity");
     Boolean debugCondition = true;
     if (Configs.debugCodes.contains(Debug.WORKLIST_DEBUG)) {
@@ -1714,7 +1746,7 @@ public class FixpointSolver {
 //      return false;
 //    }
     for (NWindowNode window : windows) {
-      Logger.verb("processFindView2", "In window: "+ window.toString());
+      //Logger.verb("processFindView2", "In window: "+ window.toString());
       for (NIdNode id : viewIds) {
         if (id.getIdValue().equals(xmlParser.getSystemRIdValue("content"))) {
           if (!(window instanceof NActivityNode)) {
@@ -1744,7 +1776,7 @@ public class FixpointSolver {
         for (NNode lhs : graphUtil.descendantNodes(root)) {
           NNode idNode = extractIdNode(lhs);
           if (viewIds.contains(idNode)) {
-            Logger.verb("processFindView2", "Find idNode: " + idNode.toString());
+            //Logger.verb("processFindView2", "Find idNode: " + idNode.toString());
             solution.add(lhs);
             recordViewProducers(lhs, node);
             if (Configs.debugCodes.contains(Debug.WORKLIST_DEBUG) && debugCondition) {
@@ -1857,7 +1889,7 @@ public class FixpointSolver {
 
     Set<NWindowNode> windows = NWindowNode.windowNodes;
     for (NWindowNode window: windows){
-      Logger.verb("DEBUG","window: " + window.toString());
+      //Logger.verb("DEBUG","window: " + window.toString());
       Set<NNode> reachableParentSet = new HashSet<>();
       Set<NNode> reachableChildSet = new HashSet<>();
       for (NNode parent: parentSet){
@@ -1897,16 +1929,16 @@ public class FixpointSolver {
           reachableChildSet.add(child);
       }
       if (reachableParentSet.isEmpty()) {
-        Logger.verb("DEBUG", "processAddView2: reachableParentSet is empty");
+        //Logger.verb("DEBUG", "processAddView2: reachableParentSet is empty");
         continue;
       }
 
       if (reachableChildSet.isEmpty()) {
-        Logger.verb("DEBUG", "processAddView2: reachableChildSet is empty");
+        //Logger.verb("DEBUG", "processAddView2: reachableChildSet is empty");
         continue;
       }
       for (NNode parent : reachableParentSet) {
-        Logger.verb("DEBUG", "Parent node: "+parent.toString());
+        //Logger.verb("DEBUG", "Parent node: "+parent.toString());
         for (NNode child : reachableChildSet) {
           if (parent == child) {
 
@@ -2014,19 +2046,19 @@ public class FixpointSolver {
 
   boolean processSetListener(NSetListenerOpNode node) {
     boolean changed = false;
-    //Logger.verb("processSetListener",node.toString());
+    Logger.verb("processSetListener",node.toString());
     Set<NNode> viewSet = solutionReceivers.get(node);
     if (viewSet == null || viewSet.isEmpty()) {
-//      Logger.verb("processSetListener","Empty view set.");
+      Logger.verb("processSetListener","Empty view set.");
       return false;
     }
 
     Set<NNode> listenerSet = solutionListeners.get(node);
     if (listenerSet == null || listenerSet.isEmpty()) {
-//      Logger.verb("processSetListener","Empty listener set.");
+      Logger.verb("processSetListener","Empty listener set.");
       return false;
     }
-//    Logger.verb("processSetListener","NSetListernerOpNode: "+ node.toString());
+    Logger.verb("processSetListener","NSetListernerOpNode: "+ node.toString());
     for (NNode view : viewSet) {
       NObjectNode viewObject = (NObjectNode) view;
 //      Logger.verb("processSetListener", "ViewObject: " + viewObject.toString());
