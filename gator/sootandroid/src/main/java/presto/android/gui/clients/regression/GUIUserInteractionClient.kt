@@ -726,7 +726,7 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         outputMap["allWindow_Widgets"] = allWindow_Widgets
         outputMap["allWindow_Widget_EventHandlers"] = allWindow_Widget_EventHandlers
         outputMap["allTransitions"] = allTransitions
-        outputMap["allStrings"] = allResourceStrings
+//        outputMap["allStrings"] = allResourceStrings
         outputMap["menuItemTexts"] = menuItemsTexts
         outputMap["windowHandlers"] = produceWindowHandlers(ComponentRelationCalculation.instance.windowHandlersMap)
 //            outputMap["widgetTexts"]= widgetTexts

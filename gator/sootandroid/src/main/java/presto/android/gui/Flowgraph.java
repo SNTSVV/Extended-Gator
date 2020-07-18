@@ -5552,14 +5552,13 @@ public class Flowgraph implements MethodNames {
     || transaction3Add4Match || transaction3Add5Match))
       return false;
     Logger.verb("ProcessFragment","[Flowgraph] AddFragmentStm: "+s.toString());
-    Logger.verb("ProcessFragment","[Flowgraph] AddFragmentStm: "+s.toString());
     SootMethod caller = jimpleUtil.lookup(s);
     Logger.verb("ProcessFragment","[Flowgraph] Caller: "+ caller.getSignature());
     try {
       Local receiver = jimpleUtil.receiver(ie);
 
       ArrayList<SootClass> topCaller = new ArrayList<>();
-      Local topCallerLocal = findCaller(s, receiver,new ArrayList<SootClass>(hier.applicationActivityClasses));
+      Local topCallerLocal = findCaller(s, receiver,new ArrayList<SootClass>(hier.appClasses));
       NVarNode receiverNode = varNode(topCallerLocal);
       recordedAddFragmentCalls.put(s, receiverNode);
       return true;
@@ -5627,7 +5626,7 @@ public class Flowgraph implements MethodNames {
     try {
       Local receiver = jimpleUtil.receiver(ie);
       ArrayList<SootClass> topCaller = new ArrayList<>();
-      Local topCallerLocal = findCaller(s, receiver,new ArrayList<SootClass>(hier.applicationActivityClasses));
+      Local topCallerLocal = findCaller(s, receiver,new ArrayList<SootClass>(hier.appClasses));
       NVarNode receiverNode = varNode(topCallerLocal);
       Logger.verb("ProcessFragment","[Flowgraph] Top Caller: "+ topCallerLocal.getType().toString());
       recordedReplaceFragmentCalls.put(s, receiverNode);
@@ -5847,7 +5846,7 @@ public class Flowgraph implements MethodNames {
           NAddView2OpNode addView2OpNode = new NAddView2OpNode(parentLayoutNode, fragmentViewNode, callSite, true);
           allNNodes.add(addView2OpNode);
           if (Configs.debugCodes.contains(Debug.FRAGMENT_DEBUG)) {
-            Logger.verb("ProcessFragment", "AddView2OpNode: "+addView2OpNode);
+            Logger.verb("ProcessFragment", String.format("AddView2OpNode: %s, add %s to %s",addView2OpNode,fragmentViewNode,parentLayoutNode ));
           }
         }
 

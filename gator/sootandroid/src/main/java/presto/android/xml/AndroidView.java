@@ -145,7 +145,7 @@ public class AndroidView implements IAndroidView {
     }
     // TODO: read about mechanism of these tags,
     // and get the real thing in.
-    if ("merge".equals(guiName) || "fragment".equals(guiName)) {
+    if ("merge".equals(guiName) /*|| "fragment".equals(guiName)*/) {
       guiName = "LinearLayout";
     } else if (guiName.equals("View")) {
       guiName = "android.view.View";

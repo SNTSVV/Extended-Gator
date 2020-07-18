@@ -146,6 +146,7 @@
             </registration>
         </event>
     </gui>
+
     <gui type="android.widget.TextView">
         <event name="enter_text">
             <registration
@@ -194,6 +195,7 @@
             </registration>
         </event>
     </gui>
+
     <gui type="android.widget.SeekBar">
         <event name="drag">
             <registration
@@ -214,6 +216,7 @@
             </registration>
         </event>
     </gui>
+
     <gui type="android.widget.RadioGroup">
         <event name="select">
             <registration
@@ -226,6 +229,7 @@
             </registration>
         </event>
     </gui>
+
     <gui type="android.widget.AbsListView">
         <event name="scroll">
             <registration
@@ -242,6 +246,7 @@
             </registration>
         </event>
     </gui>
+
     <gui type="android.widget.CompoundButton">
         <event name="select">
             <registration
@@ -353,7 +358,5 @@
             </registration>
         </event>
     </gui>
-
-
 </ListenerSpecification>
 

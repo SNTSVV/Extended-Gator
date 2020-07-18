@@ -492,13 +492,14 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
 
     fun getActivitiesCallingMethods(fragmentClass: SootClass, fragmentMethod: SootMethod): List<SootMethod> {
         val activityMethods = ArrayList<SootMethod>()
+        Logger.verb("DEBUG","Fragment class: ${fragmentClass.name}")
         for (node in guiAnalysisOutput!!.flowgraph.allAddFragmentNodes){
             val c = node.fragmentClass
             if (c!=null && c.equals(fragmentClass))
             {
                 val activityNode = node.receiver
                 val activityClass = ((activityNode as NVarNode).l!!.type as RefType).sootClass
-                //Logger.verb("DEBBUG","Activity calling class: ${activityClass.name}")
+                Logger.verb("DEBUG","Activity added class: ${activityClass.name}")
                 getActivityCallingMethod(fragmentMethod, activityClass, activityMethods)
             }
         }
@@ -508,7 +509,7 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
             {
                 val activityNode = node.receiver
                 val activityClass = ((activityNode as NVarNode).l!!.type as RefType).sootClass
-                //Logger.verb("DEBUG","Activity calling class: ${activityClass.name}")
+                Logger.verb("DEBUG","Activity added class: ${activityClass.name}")
                 getActivityCallingMethod(fragmentMethod,activityClass,activityMethods)
             }
         }
@@ -516,6 +517,7 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
     }
 
     private fun getActivityCallingMethod(fragmentMethod: SootMethod, activityClass: SootClass, activityMethods: ArrayList<SootMethod>) {
+        Logger.verb("DEBUG","Fragment method: ${fragmentMethod.subSignature}")
         if (fragmentMethod.subSignature.equals(MethodNames.fragmentOnActivityCreatedSubSig)
                 || fragmentMethod.subSignature.equals(MethodNames.fragmentOnCreateViewSubSig)
                 || fragmentMethod.subSignature.equals(MethodNames.onActivityCreateSubSig)
@@ -525,6 +527,7 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
             {
                 val onCreate = activityClass.getMethod(MethodNames.onActivityCreateSubSig)
                 if (onCreate != null) {
+                    Logger.verb("DEBUG","Activity invoked method: ${onCreate.subSignature}")
                     activityMethods.add(onCreate)
                 }
             }
@@ -532,6 +535,7 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
             {
                 val onStart = activityClass.getMethod(MethodNames.onActivityStartSubSig)
                 if (onStart != null) {
+                    Logger.verb("DEBUG","Activity invoked method: ${onStart.subSignature}")
                     activityMethods.add(onStart)
                 }
             }
@@ -542,6 +546,7 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
             {
                 val onActivityResultMethod = activityClass.getMethod(MethodNames.onActivityResultSubSig)
                 if (onActivityResultMethod != null) {
+                    Logger.verb("DEBUG","Activity invoked method: ${onActivityResultMethod.subSignature}")
                     activityMethods.add(onActivityResultMethod)
                 }
             }
@@ -551,16 +556,18 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
             {
                 val onPauseMethod = activityClass.getMethod(MethodNames.onActivityPauseSubSig)
                 if (onPauseMethod != null) {
+                    Logger.verb("DEBUG","Activity invoked method: ${onPauseMethod.subSignature}")
                     activityMethods.add(onPauseMethod)
                 }
             }
 
         }
-        if (activityClass.declaresMethod(MethodNames.onActivityStopSubSig))
-        {
-            if (fragmentMethod.subSignature.equals(MethodNames.onActivityStopSubSig)) {
+        if (fragmentMethod.subSignature.equals(MethodNames.onActivityStopSubSig)) {
+            if (activityClass.declaresMethod(MethodNames.onActivityStopSubSig))
+            {
                 val onStopMethod = activityClass.getMethod(MethodNames.onActivityStopSubSig)
                 if (onStopMethod != null) {
+                    Logger.verb("DEBUG","Activity invoked method: ${onStopMethod.subSignature}")
                     activityMethods.add(onStopMethod)
                 }
             }
@@ -570,6 +577,7 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
             {
                 val onOptionsItemSelectedMethod = activityClass.getMethod(MethodNames.onActivityPauseSubSig)
                 if (onOptionsItemSelectedMethod != null) {
+                    Logger.verb("DEBUG","Activity invoked method: ${onOptionsItemSelectedMethod.subSignature}")
                     activityMethods.add(onOptionsItemSelectedMethod)
                 }
             }

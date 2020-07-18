@@ -892,6 +892,7 @@ public class DefaultXMLParser extends AbstractXMLParser {
       throw new RuntimeException(e);
     }
 
+    Logger.verb("DefaultXMLParser",String.format("Readlayout: %s",file));
     Element rootElement = doc.getDocumentElement();
     // In older versions, Preference could be put in layout folder and we do
     // not support Prefernce yet.
@@ -995,17 +996,32 @@ public class DefaultXMLParser extends AbstractXMLParser {
           continue;
         }
 
-        if (newNode.getNodeName().equals("include")) {
+        if (newNode.getNodeName().equals("include") ||newNode.getNodeName().equals("fragment") ) {
+          Logger.verb("XML", String.format("fragment node"));
           attrMap = newNode.getAttributes();
-          if (attrMap.getNamedItem("layout") == null) {
-            Logger.warn("XML", "layout not exist in include");
-            for (int j = 0; j < attrMap.getLength(); j++) {
-              Logger.trace("XML", attrMap.item(j).getNodeName());
+          String layoutTxt;
+          if (newNode.getNodeName().equals("include")) {
+            if (attrMap.getNamedItem("layout") == null) {
+              Logger.warn("XML", "layout not exist in include");
+              for (int j = 0; j < attrMap.getLength(); j++) {
+                Logger.trace("XML", attrMap.item(j).getNodeName());
+              }
+              Logger.trace("XML", "filename" + file);
+              continue;
             }
-            Logger.trace("XML", "filename" + file);
-            continue;
+             layoutTxt = attrMap.getNamedItem("layout").getTextContent();
+          } else {
+            if (attrMap.getNamedItemNS(ANDROID_NS, "layout") == null) {
+              Logger.warn("XML", "layout not exist in include");
+              for (int j = 0; j < attrMap.getLength(); j++) {
+                Logger.trace("XML", attrMap.item(j).getNodeName());
+              }
+              Logger.trace("XML", "filename" + file);
+              continue;
+            }
+             layoutTxt = attrMap.getNamedItemNS(ANDROID_NS, "layout").getTextContent();
           }
-          String layoutTxt = attrMap.getNamedItem("layout").getTextContent();
+
           String layoutId = null;
           if (layoutTxt.startsWith("@layout/")) {
             layoutId = layoutTxt.substring("@layout/".length());
@@ -1038,6 +1054,7 @@ public class DefaultXMLParser extends AbstractXMLParser {
           }
 
           // view.saveInclude(layoutId, includeeId);
+          Logger.verb("XML", String.format("Include layout %s into %s",layoutId,includeeId));
           IncludeAndroidView iav = new IncludeAndroidView(layoutId, includeeId);
           iav.setParent(view);
         } else {
@@ -1598,7 +1615,7 @@ public class DefaultXMLParser extends AbstractXMLParser {
 
       Integer idValueObj = stringFieldAndIds.get(stringName);
       if (idValueObj == null) {
-        if (debug) {
+        if (false) {
           throw new RuntimeException("Unknown string node " + stringName
                   + " defined in " + file);
         }

@@ -383,3 +383,4 @@ Interpolator,android.view.animation.Interpolator
 KeyEvent$Callback,android.view.KeyEvent$Callback
 ViewDebug$IntToString,android.view.ViewDebug$IntToString
 PopupWindow$OnDismissListener,android.widget.PopupWindow$OnDismissListener
+fragment,android.app.Fragment
