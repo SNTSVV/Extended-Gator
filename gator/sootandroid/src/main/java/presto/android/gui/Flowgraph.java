@@ -641,6 +641,8 @@ public class Flowgraph implements MethodNames {
       allNNodes.add(optionsMenuNode);
     }
     return optionsMenuNode;
+
+
   }
 
   // Arrays.
@@ -3539,13 +3541,17 @@ public class Flowgraph implements MethodNames {
       boolean activityResolved = false;
       boolean dialogResolved = false;
       for (NNode n : graphUtil.backwardReachableNodes(varNode(activityLocal))) {
-        if (!(n instanceof NActivityNode)) {
+        if (!(n instanceof NActivityNode) && !(n instanceof NFragmentNode)) {
           continue;
         }
         activityResolved = true;
-        SootClass activityClass = ((NActivityNode) n).getClassType();
+        SootClass callerClass;
+        if (n instanceof NActivityNode)
+         callerClass = ((NActivityNode) n).getClassType();
+        else
+          callerClass = ((NFragmentNode)n).getClassType();
 
-        for (NDialogNode dialog : getDialogObjectsForOnCreateDialog(activityClass)) {
+        for (NDialogNode dialog : getDialogObjectsForOnCreateDialog(callerClass)) {
           dialogResolved = true;
           Set<Stmt> calls = dialogObjectAndCalls.get(dialog);
           if (calls == null) {

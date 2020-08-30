@@ -13,9 +13,7 @@ import org.slf4j.LoggerFactory
 import presto.android.Logger
 import presto.android.MethodNames
 import presto.android.gui.GUIAnalysisOutput
-import presto.android.gui.clients.regression.ComponentRelationCalculation
 import presto.android.gui.clients.regression.GUIUserInteractionClient
-import presto.android.gui.graph.NActivityNode
 import presto.android.gui.graph.NVarNode
 import presto.android.gui.wtg.ds.WTGEdge
 import soot.*
@@ -36,7 +34,7 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
                       val implicitIntentActivities: Set<SootClass>,
                       val intentCallingMethods: HashMap<String, HashSet<SootClass>>) {
     //For debug
-    val debugCallback = "<com.eleybourn.bookcatalogue.utils.StorageUtils: void sendDebugInfo(android.content.Context,com.eleybourn.bookcatalogue.CatalogueDBAdapter)>"
+    val debugCallback = "org.wikipedia.search.SearchFragment newInstance(org.wikipedia.search.SearchInvokeSource,java.lang.String)"
     var callbackDebug = false
 
     val currentCallingGraph = Stack<String>()
@@ -51,7 +49,8 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
          recordAsyncTaskUsage()
          val modMethodInvocation = HashMap<String, ArrayList<WTGEdge>>()
          methodSignatureList.forEach {
-            if (Scene.v().containsMethod(it))
+            callbackDebug = false
+             if (Scene.v().containsMethod(it))
             {
                 val sootMethod = Scene.v().getMethod(it)
                 // Logger.verb("DEBUG","Finding invocation for: ${sootMethod.signature}")
@@ -80,11 +79,8 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
      * Return true if we can find a topCallingMethod, otherwise return false
      */
      fun findTopCallingMethod(modMethod: SootMethod, callback: SootMethod, refinedPackageName: String, abstractLevel: Int, lastActivityMethod: SootMethod?): Boolean {
+        callbackDebug = true
         var currentLastActivityMethod = lastActivityMethod
-        if (modMethod.signature.contains("signedBy"))
-        {
-            Logger.verb("DEBUG", "Modified method: ${modMethod.signature} - Callback: ${callback.signature}")
-        }
         if (currentCallingGraph.contains(callback.signature)) {
             //Logger.verb("DEBUG","Callback in a loop: ${callback.signature}")
             if (cacheTopCallingMethods.containsKey(callback.signature))
@@ -105,24 +101,23 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
                     }
                 }
                 return true
-//                Logger.verb("DEBUG", "Top calling method of ${modMethod.signature} is got from ${callback.signature}")
+                Logger.verb("DEBUG", "Top calling method of ${modMethod.signature} is got from ${callback.signature}")
             }
             else
             {
-//                Logger.verb("DEBUG", "Checked callback. No more calling method found for ${callback.signature}.")
+                Logger.verb("DEBUG", "Processed callback. No more calling method found for ${callback.signature}.")
                 return true
             }
-            return true
         }
         currentCallingGraph.push(callback.signature)
         //ComponentRelationCalculation.instance.registerMethod(method = callback)
-        if (callback.signature.equals(debugCallback))
+        if (callback.signature.contains(debugCallback))
         {
             callbackDebug = true
         }
         if (callbackDebug)
         {
-            Logger.verb("DEBUG", "Callback: ${callback.signature}")
+            Logger.verb("CallbackDebug", "Modified method: ${modMethod.signature} - Callback: ${callback.signature}")
         }
         var topCallingPointFound: Boolean = false
 
@@ -157,7 +152,8 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
             addTopCallingMethod(modMethod.signature, callback.signature, cacheTopCallingMethods)
             addTopCallingMethod(callback.signature,callback.signature,cacheTopCallingMethods)
             topCallingPointFound = true
-//            Logger.verb("DEBUG", "Callback is event handlers, top calling method of ${modMethod.signature} is ${callback.signature}")
+            if (callbackDebug)
+                Logger.verb("DEBUG", "Callback is event handlers, top calling method of ${modMethod.signature} is ${callback.signature}")
         }
         else
         {
@@ -186,37 +182,7 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
                     currentLastActivityMethod = callback
                 }
                 val initializingClasses = ArrayList<SootClass>()
-                if (!callback.isStatic)
-                {
-                    //Find declaring class constructor call
-                    val initializingClassMethods = ArrayList<SootMethod>()
-                    val constructos = declaringClass.methods.filter { it.isConstructor }
-                    constructos.forEach {
-                        currentCallingGraph.push(it.signature)
-                        var callConstructorSources = Sources(callGraph.edgesInto(it))
-                        while (callConstructorSources.hasNext())
-                        {
-                            val initializingClassMethod = callConstructorSources.next().method()
-                            if (!initializingClassMethod.method().declaringClass.name.contains("com.google.android.gms.internal")) {
-                                initializingClasses.add(initializingClassMethod.declaringClass)
-                                initializingClassMethods.add(initializingClassMethod)
-                            }
-                        }
-                    }
-                    initializingClassMethods.forEach {
-                        if (callbackDebug)
-                        {
-                            Logger.verb("DEBUG", "Next Callback for initializeConstructors: ${it.signature}`")
-                        }
-                        findTopCallingMethod(modMethod,it,refinedPackageName, abstractLevel, currentLastActivityMethod)
-                        if (cacheTopCallingMethods.containsKey(it.signature)) {
-                            cacheTopCallingMethods[it.signature]!!.forEach { callingMethodSig ->
-                                addTopCallingMethod(callback.signature, callingMethodSig, cacheTopCallingMethods)
-                                addTopCallingMethod(it.signature, callingMethodSig, cacheTopCallingMethods)
-                            }
-                        }
-                    }
-                }
+
 
                 val virtualMethods = ArrayList<SootMethod>()
 
@@ -248,59 +214,47 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
                         val cb = sources.next().method()
                         //Logger.verb("DEBUG","Callback of ${m.signature}: ${cb.signature}")
                         if (!virtualMethods.contains(cb) ) {
-                            if (m.isStatic || (!m.isStatic && initializingClasses.contains(cb.declaringClass)))
+                           /* if (m.isStatic || (!m.isStatic && initializingClasses.contains(cb.declaringClass)))
+                            {
+                            }*/
+                            //hasCallingPoint = false
+                            if (!cb.declaringClass.isJavaLibraryClass && !isAndroidLibrary(cb.declaringClass)
+                                            && !cb.declaringClass.isLibraryClass)
                             {
                                 hasCallingPoint = true
-                                if ((abstractLevel > 0 &&
-                                                !cb.declaringClass.isJavaLibraryClass && !isAndroidLibrary(cb.declaringClass))
-                                        || (
-                                                abstractLevel == 0
-                                                )
-                                )
+                                if (callbackDebug)
                                 {
-                                    if (m != callback) {
-                                        //if declaring class of m is parent of any class in initializingClasses
+                                    Logger.verb("DEBUG", "Next Callback for virtualMethods: ${cb.signature}")
+                                }
+                                findTopCallingMethod(modMethod, cb, refinedPackageName, abstractLevel+1, currentLastActivityMethod)
+                                if (cacheTopCallingMethods.containsKey(cb.signature))
+                                {
+                                    cacheTopCallingMethods[cb.signature]!!.forEach {
                                         if (callbackDebug)
                                         {
-                                            Logger.verb("DEBUG", "Next Callback for virtualMethods: ${cb.signature}")
+                                            Logger.verb("DEBUG", "Top caller of ${cb.signature}: $it")
                                         }
-                                        findTopCallingMethod(modMethod, cb, refinedPackageName, abstractLevel + 1, currentLastActivityMethod)
+                                        addTopCallingMethod(callback.signature, it, cacheTopCallingMethods)
+                                        addTopCallingMethod(m.signature, it, cacheTopCallingMethods)
                                     }
-                                    else {
-                                        if (callbackDebug)
-                                        {
-                                            Logger.verb("DEBUG", "Next Callback for virtualMethods: ${cb.signature}")
-                                        }
-                                        findTopCallingMethod(modMethod, cb, refinedPackageName, abstractLevel, currentLastActivityMethod)
-                                    }
-                                    if (cacheTopCallingMethods.containsKey(cb.signature))
-                                    {
-                                        cacheTopCallingMethods[cb.signature]!!.forEach {
-                                            if (callbackDebug)
-                                            {
-                                                Logger.verb("DEBUG", "Top caller of ${cb.signature}: $it")
-                                            }
-                                            addTopCallingMethod(callback.signature, it, cacheTopCallingMethods)
-                                            addTopCallingMethod(m.signature, it, cacheTopCallingMethods)
-                                        }
 //                                Logger.verb("DEBUG", "Top calling method of ${callback.signature} is got from ${cb.signature}")
 //                                Logger.verb("DEBUG", "Top calling method of ${m.signature} is got from ${cb.signature}")
-                                    }
                                 }
-                                if (m!=callback)
+                            }
+                           /* if (m!=callback)
+                            {
+                                if(findingFrameworkManagedCallingPoint2(refinedPackageName, m, modMethod,abstractLevel+1,currentLastActivityMethod))
                                 {
-                                    if(findingFrameworkManagedCallingPoint2(refinedPackageName, m, modMethod,abstractLevel+1,currentLastActivityMethod))
-                                    {
-                                        hasCallingPoint = true
-                                    }
+                                    hasCallingPoint = true
                                 }
-                                else
-                                {
-                                    if(findingFrameworkManagedCallingPoint2(refinedPackageName, m, modMethod,abstractLevel,currentLastActivityMethod))
-                                    {
-                                        hasCallingPoint = true
-                                    }
-                                }
+                            }
+                            else
+                            {
+
+                            }*/
+                            if(findingFrameworkManagedCallingPoint2(refinedPackageName, m, modMethod,abstractLevel,currentLastActivityMethod))
+                            {
+                                hasCallingPoint = true
                             }
 
                         }
@@ -320,10 +274,60 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
                         addTopCallingMethod(modMethod.signature, topCallingMethod.signature, cacheTopCallingMethods)
                         addTopCallingMethod(topCallingMethod.signature, topCallingMethod.signature, cacheTopCallingMethods)
                         topCallingPointFound = true
-//                            Logger.verb("DEBUG", "No more calling method found for ${m.signature}.")
-//                            Logger.verb("DEBUG", "Top calling method of ${modMethod.signature} is ${m.signature}")
+                        if (callbackDebug) {
+                            Logger.verb("DEBUG", "No more calling method found for ${m.signature}.")
+                            Logger.verb("DEBUG", "Top calling method of ${modMethod.signature} is ${m.signature}")
+                        }
                     }
                     //currentCallingGraph.pop()
+                }
+                if (!callback.isStatic && topCallingPointFound)
+                {
+                    val initializingClassMethods = ArrayList<SootMethod>()
+                    //if callback's class is View, find windows contains this widget of this callback's class type
+                    if (guiAnalysisOutput.flowgraph.hier.isViewClass(callback.declaringClass)) {
+                        val simpleWindowWidgetClass = GUIUserInteractionClient.simpleWindow_Widgets
+                        simpleWindowWidgetClass.forEach { window, viewClasses ->
+                            if (viewClasses.contains(callback.declaringClass)) {
+                                val windowClass = window.classType
+                                val constructors = windowClass.methods.filter { it.isConstructor }
+                                constructors.forEach {
+                                    initializingClassMethods.add(it)
+                                }
+                            }
+                        }
+                    }
+                    //Find declaring class constructor call
+
+                    val constructos = declaringClass.methods.filter { it.isConstructor }
+                    constructos.forEach {
+                        currentCallingGraph.push(it.signature)
+                        var callConstructorSources = Sources(callGraph.edgesInto(it))
+                        while (callConstructorSources.hasNext())
+                        {
+                            val initializingClassMethod = callConstructorSources.next().method()
+                            if (!initializingClassMethod.method().declaringClass.name.contains("com.google.android.gms.internal")) {
+                                initializingClasses.add(initializingClassMethod.declaringClass)
+                                initializingClassMethods.add(initializingClassMethod)
+                            }
+                        }
+                    }
+                    if (initializingClassMethods.isNotEmpty()) {
+                        topCallingPointFound = false
+                    }
+                    initializingClassMethods.forEach {
+                        if (callbackDebug)
+                        {
+                            Logger.verb("DEBUG", "Next Callback for initializeConstructors: ${it.signature}`")
+                        }
+                        findTopCallingMethod(modMethod,it,refinedPackageName, abstractLevel, currentLastActivityMethod)
+                        if (cacheTopCallingMethods.containsKey(it.signature)) {
+                            cacheTopCallingMethods[it.signature]!!.forEach { callingMethodSig ->
+                                addTopCallingMethod(callback.signature, callingMethodSig, cacheTopCallingMethods)
+                                addTopCallingMethod(it.signature, callingMethodSig, cacheTopCallingMethods)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -331,11 +335,8 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
         if (callbackDebug )
         {
             Logger.verb("DEBUG", "End finding top caller for callback: ${callback.signature} ")
-            if (callback.signature.equals(debugCallback))
-            {
-                callbackDebug = false
-            }
         }
+        callbackDebug = false
         return topCallingPointFound
     }
 
@@ -385,6 +386,9 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
      * Return true if callback is reachable, otherwise return false
      */
     private fun isReachable(callGraph: CallGraph, callback: SootMethod, refinedPackageName: String):Boolean {
+        if (callbackDebug) {
+            Logger.verb("CallbackDebug", "Checking if method is reachable.")
+        }
         //get all base class virtual methods
         val virtualMethods = ArrayList<SootMethod>()
         val superClasses =  guiAnalysisOutput!!.flowgraph.hier.getSupertypes(callback.declaringClass)
@@ -444,6 +448,7 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
         }
         if (!reachable) {
             GUIUserInteractionClient.unreachableMethods.add(callback.signature)
+            Logger.verb("CallbackFinder","Unreachable method: "+callback.signature)
         }
 
         return reachable
@@ -492,14 +497,18 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
 
     fun getActivitiesCallingMethods(fragmentClass: SootClass, fragmentMethod: SootMethod): List<SootMethod> {
         val activityMethods = ArrayList<SootMethod>()
-        Logger.verb("DEBUG","Fragment class: ${fragmentClass.name}")
+        if (callbackDebug) {
+            Logger.verb("DEBUG", "Fragment class: ${fragmentClass.name}")
+        }
         for (node in guiAnalysisOutput!!.flowgraph.allAddFragmentNodes){
             val c = node.fragmentClass
             if (c!=null && c.equals(fragmentClass))
             {
                 val activityNode = node.receiver
                 val activityClass = ((activityNode as NVarNode).l!!.type as RefType).sootClass
-                Logger.verb("DEBUG","Activity added class: ${activityClass.name}")
+                if (callbackDebug) {
+                    Logger.verb("DEBUG", "Using fragment class: ${activityClass.name}")
+                }
                 getActivityCallingMethod(fragmentMethod, activityClass, activityMethods)
             }
         }
@@ -509,7 +518,9 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
             {
                 val activityNode = node.receiver
                 val activityClass = ((activityNode as NVarNode).l!!.type as RefType).sootClass
-                Logger.verb("DEBUG","Activity added class: ${activityClass.name}")
+                if (callbackDebug) {
+                    Logger.verb("DEBUG", "Using fragment class: ${activityClass.name}")
+                }
                 getActivityCallingMethod(fragmentMethod,activityClass,activityMethods)
             }
         }
@@ -517,7 +528,8 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
     }
 
     private fun getActivityCallingMethod(fragmentMethod: SootMethod, activityClass: SootClass, activityMethods: ArrayList<SootMethod>) {
-        Logger.verb("DEBUG","Fragment method: ${fragmentMethod.subSignature}")
+        if (callbackDebug)
+            Logger.verb("DEBUG","Fragment method: ${fragmentMethod.subSignature}")
         if (fragmentMethod.subSignature.equals(MethodNames.fragmentOnActivityCreatedSubSig)
                 || fragmentMethod.subSignature.equals(MethodNames.fragmentOnCreateViewSubSig)
                 || fragmentMethod.subSignature.equals(MethodNames.onActivityCreateSubSig)
@@ -527,7 +539,8 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
             {
                 val onCreate = activityClass.getMethod(MethodNames.onActivityCreateSubSig)
                 if (onCreate != null) {
-                    Logger.verb("DEBUG","Activity invoked method: ${onCreate.subSignature}")
+                    if (callbackDebug)
+                        Logger.verb("DEBUG","Activity invoked method: ${onCreate.subSignature}")
                     activityMethods.add(onCreate)
                 }
             }
@@ -535,7 +548,8 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
             {
                 val onStart = activityClass.getMethod(MethodNames.onActivityStartSubSig)
                 if (onStart != null) {
-                    Logger.verb("DEBUG","Activity invoked method: ${onStart.subSignature}")
+                    if (callbackDebug)
+                        Logger.verb("DEBUG","Activity invoked method: ${onStart.subSignature}")
                     activityMethods.add(onStart)
                 }
             }
@@ -546,7 +560,8 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
             {
                 val onActivityResultMethod = activityClass.getMethod(MethodNames.onActivityResultSubSig)
                 if (onActivityResultMethod != null) {
-                    Logger.verb("DEBUG","Activity invoked method: ${onActivityResultMethod.subSignature}")
+                    if (callbackDebug)
+                        Logger.verb("DEBUG","Activity invoked method: ${onActivityResultMethod.subSignature}")
                     activityMethods.add(onActivityResultMethod)
                 }
             }
@@ -556,7 +571,8 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
             {
                 val onPauseMethod = activityClass.getMethod(MethodNames.onActivityPauseSubSig)
                 if (onPauseMethod != null) {
-                    Logger.verb("DEBUG","Activity invoked method: ${onPauseMethod.subSignature}")
+                    if (callbackDebug)
+                        Logger.verb("DEBUG","Activity invoked method: ${onPauseMethod.subSignature}")
                     activityMethods.add(onPauseMethod)
                 }
             }
@@ -567,7 +583,8 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
             {
                 val onStopMethod = activityClass.getMethod(MethodNames.onActivityStopSubSig)
                 if (onStopMethod != null) {
-                    Logger.verb("DEBUG","Activity invoked method: ${onStopMethod.subSignature}")
+                    if (callbackDebug)
+                        Logger.verb("DEBUG","Activity invoked method: ${onStopMethod.subSignature}")
                     activityMethods.add(onStopMethod)
                 }
             }
@@ -575,9 +592,10 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
         if (fragmentMethod.subSignature.equals(MethodNames.onOptionsItemSelectedSubSig)) {
             if (activityClass.declaresMethod(MethodNames.onOptionsItemSelectedSubSig))
             {
-                val onOptionsItemSelectedMethod = activityClass.getMethod(MethodNames.onActivityPauseSubSig)
+                val onOptionsItemSelectedMethod = activityClass.getMethod(MethodNames.onOptionsItemSelectedSubSig)
                 if (onOptionsItemSelectedMethod != null) {
-                    Logger.verb("DEBUG","Activity invoked method: ${onOptionsItemSelectedMethod.subSignature}")
+                    if (callbackDebug)
+                        Logger.verb("DEBUG","Activity invoked method: ${onOptionsItemSelectedMethod.subSignature}")
                     activityMethods.add(onOptionsItemSelectedMethod)
                 }
             }
@@ -596,13 +614,13 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
                 if (!asyncTaskCalls.contains(asyncTaskClass)) {
                     asyncTaskCalls[asyncTaskClass!!] = ArrayList()
                 }
-                asyncTaskCalls[asyncTaskClass!!]!!.add(m)
+                if (!asyncTaskCalls[asyncTaskClass!!]!!.contains(m))
+                    asyncTaskCalls[asyncTaskClass!!]!!.add(m)
                 Logger.verb("DEBUG","${asyncTaskClass.name} called by ${m.signature}")
             }
         }
     }
 
-    @Deprecated(message = "not used")
     private fun findCallingEvents(modMethod: SootMethod, callBack: SootMethod, refinedPackageName: String): Boolean {
         //
         /*if(allMethodInvocation.containsKey(modMethod.signature))
@@ -688,7 +706,7 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
     private fun findingFrameworkManagedCallingPoint1(refinedPackageName: String, callBack: SootMethod, modMethod: SootMethod): Boolean {
         val callerClass = callBack.declaringClass
         var hasCallingPoint = false
-        if (guiAnalysisOutput!!.flowgraph.hier.isSubclassOf(callerClass, Scene.v().getSootClass("android.os.AsyncTask"))) {
+        if (isAsyncClass(callerClass)) {
             //Logger.verb("DEBUG", "Callback is belong to AsyncTask: " + callerClass)
             //find execute point
             //get execute method
@@ -731,7 +749,7 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
 
     private fun findingFrameworkManagedCallingPoint2(refinedPackageName: String, callback: SootMethod, modMethod: SootMethod,abstractLevel: Int, lastActivityMethod: SootMethod?): Boolean {
         val callerClass = callback.declaringClass
-        var topCallingMethodFound: Boolean = false
+        var callbackFound: Boolean = false
         if (isAsyncClass(callerClass)) {
             //find execute point
             //get execute method
@@ -743,7 +761,7 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
                     {
                         Logger.verb("DEBUG", "Next Callback for async : ${executeCaller.signature}")
                     }
-                    topCallingMethodFound = true
+                    callbackFound = true
                     findTopCallingMethod(modMethod, executeCaller, refinedPackageName,abstractLevel = abstractLevel,lastActivityMethod = lastActivityMethod)
                     if (cacheTopCallingMethods.containsKey(executeCaller.signature))
                     {
@@ -779,33 +797,26 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
         if (guiAnalysisOutput!!.flowgraph.hier.isFragmentClass(callerClass)) {
             val activitiesCallingMethods = getActivitiesCallingMethods(callerClass, callback)
             for (m in activitiesCallingMethods) {
-                topCallingMethodFound = true
-                //val message = "Activity calling fragment: " + m
-                //Logger.verb("DEBUG", message)
+                callbackFound = true
                 if (callbackDebug)
                 {
                     Logger.verb("DEBUG", "Next Callback for activityCallingMethod : ${m.signature}")
                 }
-                findTopCallingMethod(modMethod, m, refinedPackageName,abstractLevel,lastActivityMethod)
-               /* if (cacheTopCallingMethods.containsKey(m.signature))
+                if(guiAnalysisOutput!!.flowgraph.hier.isActivityClass(m.declaringClass)) {
+                    findTopCallingMethod(modMethod, m, refinedPackageName,abstractLevel,m)
+                } else {
+                    findTopCallingMethod(modMethod, m, refinedPackageName,abstractLevel,lastActivityMethod)
+                }
+                if (cacheTopCallingMethods.containsKey(m.signature))
                 {
                     cacheTopCallingMethods[m.signature]!!.forEach {
-                        addTopCallingMethod(modMethod.signature,it, topCallingModifiedMethods)
-                        addTopCallingMethod(modMethod.signature, it, cacheTopCallingMethods)
                         addTopCallingMethod(callback.signature, it, cacheTopCallingMethods)
-                        // Logger.verb("DEBUG", "From cache, top calling method of ${modMethod.signature} is ${it}")
                     }
+//                        Logger.verb("DEBUG", "Top calling method of ${callback.signature} is got from ${executeCaller.signature}")
                 }
-                else
-                {
-                    if(!findTopCallingMethod(modMethod, m, refinedPackageName))
-                    {
-                        addTopCallingMethod(callback = m.signature, method = callback.signature, topCallingMethods = cacheTopCallingMethods)
-                    }
-                }*/
             }
         }
-        return topCallingMethodFound
+        return callbackFound
     }
 
     private fun findCallingEventsAndLog(message: String, modMethod: SootMethod, m: SootMethod, refinedPackageName: String, callBack: SootMethod, log: Boolean): Boolean {

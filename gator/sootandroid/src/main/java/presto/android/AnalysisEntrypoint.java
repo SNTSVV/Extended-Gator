@@ -99,7 +99,8 @@ public class AnalysisEntrypoint {
 
     for (SootClass c : Scene.v().getClasses()) {
       if (c.getName().startsWith(appPkg)) continue;
-      if (Configs.isLibraryClass(c.getName())) {
+      c.setLibraryClass();
+      /*if (Configs.isLibraryClass(c.getName())) {
         if ((!c.isPhantomClass()) && c.isApplicationClass()) {
           c.setLibraryClass();
         }
@@ -109,7 +110,7 @@ public class AnalysisEntrypoint {
         {
           c.setLibraryClass();
         }
-      }
+      }*/
     }
 
 //    Logger.verb("DEBUG", "After loading library packages");

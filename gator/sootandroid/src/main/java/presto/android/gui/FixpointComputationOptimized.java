@@ -35,6 +35,7 @@ import java.util.Set;
  */
 public class FixpointComputationOptimized {
     static void optimizedComputePathsFromViewProducerToViewConsumer(FixpointSolver solver) {
+        Logger.verb("Fixpoint", "Begin optimizedComputePathsFromViewProducerToViewConsumer...");
         for (NActivityNode activityNode: solver.flowgraph.butterKnifeActivityRootBinding.keySet()) {
             if (!solver.activityRoots.containsKey(activityNode)){
                 continue;
@@ -42,7 +43,6 @@ public class FixpointComputationOptimized {
             NNode bindingRoot = solver.flowgraph.butterKnifeActivityRootBinding.get(activityNode);
             for (NNode root: solver.activityRoots.get(activityNode)) {
                 root.addEdgeTo(bindingRoot);
-                Logger.verb("ButterKnife", String.format("Activity %s binding: root %s --> view %s", activityNode.c,root,bindingRoot));
             }
         }
         for (NNode source : solver.flowgraph.allNNodes) {
@@ -190,6 +190,7 @@ public class FixpointComputationOptimized {
         }
 
         solver.solutionResultsReachability();
+        Logger.verb("Fixpoint", "optimizedComputePathsFromViewProducerToViewConsumer Done.");
     }
 
     static void windowReachability(FixpointSolver solver) {
@@ -197,6 +198,7 @@ public class FixpointComputationOptimized {
         for (NWindowNode windowNode : NWindowNode.windowNodes) {
             Logger.verb("windowReachability","windowNode: "+windowNode);
             Set<NNode> reachables = solver.graphUtil.reachableNodes(windowNode);
+            Logger.verb("windowReachability","targetNode count: "+reachables.size());
             for (NNode target : reachables) {
 
                 if (!(target instanceof NOpNode)) {
@@ -206,8 +208,8 @@ public class FixpointComputationOptimized {
                 if ((opNode instanceof NInflate2OpNode
                         || opNode instanceof NAddView1OpNode
                         || opNode instanceof NFindView2OpNode)
-                        && reachables.contains(opNode.getReceiver())) {
-                  Logger.verb("windowReachability","reachable: "+target);
+                       && reachables.contains(opNode.getReceiver())) {
+                  //Logger.verb("windowReachability","reachable: "+target);
                     MultiMapUtil.addKeyAndHashSetElement(solver.reachingWindows, opNode, windowNode);
                 } else if (opNode instanceof NSetListenerOpNode
                         && reachables.contains(opNode.getParameter())) {
@@ -224,5 +226,6 @@ public class FixpointComputationOptimized {
                 }
             }
         }
+        Logger.verb(FixpointComputationOptimized.class.getSimpleName(), "Done.");
     }
 }

@@ -52,6 +52,7 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
 
         val widgetEvents = HashMap<String, ArrayList<WTGEdge>>()  //widget -> list of (source event)
         val allWindow_Widgets = HashMap<String, HashMap<Int, Any>>()
+        val simpleWindow_Widgets = HashMap<NObjectNode, HashSet<SootClass>>()
         val allWidgetIds = HashMap<Int, NIdNode>()
         val allActivities = HashMap<Int, String>()
         val allDialogs = HashMap<Int, String>()
@@ -446,7 +447,10 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         if (!allWindow_Widgets.contains(window.toString())) {
             allWindow_Widgets[window.toString()] = HashMap()
         }
-
+        if (!simpleWindow_Widgets.containsKey(window)) {
+            simpleWindow_Widgets[window] = HashSet()
+        }
+        val allViewClasses = simpleWindow_Widgets[window]!!
         val allEventHandlerMethods = GUIUserInteractionClient.guiAnalysisOutput!!.getAllEventsAndTheirHandlers(window).map { it.value }
         allEventHandlerMethods.forEach {
             it.forEach {
@@ -459,7 +463,14 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         }
 
 //            getAllChildrenFlattenInWindow(window, allWindow_Widgets[window.toString()]!!,0)
-        getAllChildrenInWindow(window, allWindow_Widgets[window.toString()]!!, HashSet())
+        val allWidgets = HashSet<NObjectNode>()
+        getAllChildrenInWindow(window, allWindow_Widgets[window.toString()]!!, allWidgets)
+        allWidgets.forEach {
+            val viewClass = it.classType
+            if (viewClass != null && !allViewClasses.contains(viewClass)) {
+                allViewClasses.add(viewClass)
+            }
+        }
 
     }
 
@@ -474,9 +485,9 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         if (!allTransitions.contains(sourceWindow)) {
             allTransitions[sourceWindow] = ArrayList()
         }
-        if (e.guiWidget !is NActivityNode && e.guiWidget !is NDialogNode && e.guiWidget !is NLauncherNode && e.guiWidget.idNode == null) {
+        /*if (e.guiWidget !is NActivityNode && e.guiWidget !is NDialogNode && e.guiWidget !is NLauncherNode && e.guiWidget.idNode == null) {
             return
-        }
+        }*/
 
         val transitions = allTransitions[sourceWindow]!!
         val transition = HashMap<String, String>()
@@ -630,10 +641,9 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
 //            }
     }
 
-    fun getAllChildrenInWindow(window: NNode, allChildWidgetsMap: HashMap<Int, Any>, allProcessWidgets: HashSet<NNode>) {
+    fun getAllChildrenInWindow(window: NNode, allChildWidgetsMap: HashMap<Int, Any>, allProcessWidgets: HashSet<NObjectNode>) {
         val childWidget = window.children
         childWidget.forEach {
-
             if (!allChildWidgetsMap.containsKey(it.id)) {
                 if (it is NInflNode || it is NViewAllocNode) {
                     val allEventHandlerMethods = GUIUserInteractionClient.guiAnalysisOutput!!.getAllEventsAndTheirHandlers(it as NObjectNode).map { it.value }
