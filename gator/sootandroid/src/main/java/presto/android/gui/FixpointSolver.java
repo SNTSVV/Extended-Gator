@@ -605,7 +605,6 @@ public class FixpointSolver {
           //Logger.verb("viewIdReachability", viewIdNode.toString() + " --> " + opNode.toString());
         } else if (opNode instanceof NInflate2OpNode) {
           // This is basically activity.setContentView(viewId). Weirdly, this
-          // seems to be allowed, but it does not affect our analysis. Ignore it
           // for now.
 
           //Logger.trace(this.getClass().getSimpleName(), "viewId " + viewIdNode + " used for " + opNode);
@@ -777,6 +776,8 @@ public class FixpointSolver {
   }
   // For both AddView1 and AddView2, there is a formal parameter that is a view.
   // In AddView2, this is the *child* to be added.
+
+  //Not used
   void viewAndListenerAsParameterAndReceiverReachability() {
     // Find all nodes that can "produce" view objects
     for (NNode n : flowgraph.allNNodes) {
@@ -830,6 +831,7 @@ public class FixpointSolver {
     }
   }
 
+  //Not used
   void parameterAndReceiverViewReachability(NNode source) {
     Set<NNode> reachables = graphUtil.reachableNodes(source);
     if (reachables.size()==0)
@@ -957,7 +959,8 @@ public class FixpointSolver {
           }
           //Logger.verb("DEBUG", inflNode.toString());
           registerInflateNode(inflNode,opNode.callSite.getO2().getDeclaringClass());
-
+          Local thisLocal = jimpleUtil.thisLocal(opNode.callSite.getO2());
+          flowgraph.simpleNode(thisLocal).addEdgeTo(inflNode);
           solutionResults.get(opNode).add(inflNode);
           recordViewProducers(inflNode, opNode);
 
@@ -975,6 +978,7 @@ public class FixpointSolver {
           }
           for (NWindowNode windowNode : windows) {
             Logger.verb("DEBUG", "Do Layout Inflate " + opNode +" for: "+ layoutIdNode + " for window "+ windowNode.c);
+
             NInflNode root = doLayoutInflate(layoutIdNode.getIdValue(), windowNode, opNode.getReceiver());
             if (root == null) {
               Logger.verb("DEBUG", "Root is null");
@@ -1201,13 +1205,13 @@ public class FixpointSolver {
       if (!(n instanceof NOpNode)) {
         continue;
       }
-      //Logger.verb("InflateNode", "Reachable node: "+ n.toString());
       NOpNode opNode = (NOpNode) n;
-      if (opNode.hasParameter() && !(windowReachables.contains(opNode.getParameter())))
+      if (opNode.hasParameter() && !(reachables.contains(opNode.getParameter())))
         continue;
       // View as parameter
       if (opNode instanceof NAddView1OpNode
               || (opNode instanceof NAddView2OpNode && reachables.contains(opNode.getParameter()))) {
+        Logger.verb("InflateNode", "Reachable node: "+ opNode.toString());
         Set<NNode> parameterSet = solutionParameters.get(opNode);
         if (parameterSet == null) {
           parameterSet = Sets.newHashSet();
@@ -1223,12 +1227,16 @@ public class FixpointSolver {
       if (opNode instanceof NFindView1OpNode
               || opNode instanceof NFindView3OpNode
               || opNode instanceof NSetIdOpNode
-              || (opNode instanceof NSetListenerOpNode && reachables.contains(opNode.getReceiver()))
-              || (opNode instanceof NAddView2OpNode && reachables.contains(opNode.getReceiver()))) {
+              || (opNode instanceof NSetListenerOpNode && windowReachables.contains(opNode.getReceiver()))
+              || (opNode instanceof NAddView2OpNode && windowReachables.contains(opNode.getReceiver()))) {
         if ((inflNode instanceof NContextMenuNode || inflNode instanceof NOptionsMenuNode) &&
                 (opNode instanceof NSetIdOpNode)) {
           //MenuNode cannot be a receiver of SetId
           continue;
+        }
+        //DEBUG
+        if (opNode instanceof NAddView2OpNode) {
+          Logger.verb("InflateNodeAddView2", "Reachable receiver: "+ inflNode.toString());
         }
         Set<NNode> receiverSet = solutionReceivers.get(opNode);
         if (receiverSet == null) {
@@ -1236,6 +1244,7 @@ public class FixpointSolver {
           solutionReceivers.put(opNode, receiverSet);
         }
         receiverSet.add(inflNode);
+
         //DEBUG
         if (opNode instanceof NSetListenerOpNode)
         {
@@ -1336,6 +1345,7 @@ public class FixpointSolver {
   NInflNode doLayoutInflate(Integer layoutId, NNode rootparent, NVarNode inflateOpNodeReciever) {
     // Step 1: create nodes and edges to represent the widget hierarchy
     //Logger.verb("DEBUG", "Do Layout Inflate for: "+ inflateOpNodeReciever);
+
     AndroidView root = getRootForLayoutId(layoutId);
     NInflNode rootNode = null;
     // these two go in synch
@@ -1379,13 +1389,7 @@ public class FixpointSolver {
         Logger.verb("DoLayoutInflate", vNode.toString());
       }
       // propagate to receiver and parameter due to the connect to <this>
-      if (rootparent!=null)
-      {
-        inflNodeToReceiverAndParameterAlongWithWindow(vNode,rootparent);
-      }
-      else {
-        inflNodeToReceiverAndParameter(vNode);
-      }
+      inflNodeToReceiverAndParameter(vNode);
 
       //Logger.verb("DoLayoutInflate", "Root: "+ vNode.toString());
       if (root == v) {
@@ -1515,7 +1519,7 @@ public class FixpointSolver {
     if (inlineClickHandlers.isEmpty())
       return;
     if (!(rootNode instanceof NActivityNode)) {
-      Logger.verb("InLineHandler", "Inline event handler present in " + androidView + " for " +
+      Logger.verb("InLineHandler", "Inline event handler present in " + androidView.toString() + " for " +
               rootNode);
       return;
     }
@@ -1764,7 +1768,6 @@ public class FixpointSolver {
             continue;
           }
           NActivityNode activity = (NActivityNode) window;
-
           Set<NNode> roots = activityRoots.get(activity);
           if (roots != null && !roots.isEmpty()) {
             solution.addAll(roots);
@@ -1874,6 +1877,7 @@ public class FixpointSolver {
 
   // AddView2: parent.addView(child)
   boolean processAddView2(NAddView2OpNode node) {
+    Logger.verb("processAddView2", node.toString() + " - " + node.artificial);
     boolean changed = false;
     Set<NNode> parentSet = solutionReceivers.get(node);
     if (parentSet == null || parentSet.isEmpty()) {
@@ -1888,17 +1892,36 @@ public class FixpointSolver {
     }
     Logger.verb("processAddView2", "parent count: "+parentSet.size());
     Logger.verb("processAddView2", "child count: "+childSet.size());
-    //Logger.verb("DEBUG","ProcessAddView2: " + node.toString());
-    /*for (NNode parent: parentSet){
-      Logger.verb("DEBUG", "Parent node: "+parent.toString());
-    }
-    for (NNode child: childSet){
-      Logger.verb("DEBUG", "Child node: "+child.toString());
-    }*/
 
     for (NNode parent : parentSet) {
-      //Logger.verb("DEBUG", "Parent node: "+parent.toString());
+      Logger.verb("DEBUG", "Parent node: "+parent.toString());
+      HashSet<NNode> reachables = new HashSet<>();
+      if (!node.artificial) {
+        HashSet<NNode> windowNodes = new HashSet<>();
+        //get root
+        LinkedList<NNode> workingList = new LinkedList<>();
+        workingList.add(parent);
+        while (!workingList.isEmpty()) {
+          NNode currentNode = workingList.pop();
+          if (currentNode instanceof NWindowNode) {
+            Logger.verb("DEBUG", "Window: " + currentNode.toString());
+            windowNodes.add(currentNode);
+          } else {
+            Iterator<NNode> parentIt = currentNode.getParents();
+            while (parentIt.hasNext()) {
+              NNode parentNode = parentIt.next();
+              workingList.push(parentNode);
+            }
+          }
+        }
+        Logger.verb("DEBUG", "Start process addView for: " + parent.toString());
+
+        for (NNode windowNode : windowNodes) {
+          reachables.addAll(graphUtil.reachableNodes(windowNode));
+        }
+      }
       for (NNode child : childSet) {
+        Logger.verb("DEBUG", "Child node: "+child.toString());
         if (parent == child) {
 
           Logger.trace(this.getClass().getSimpleName(),
@@ -1907,62 +1930,49 @@ public class FixpointSolver {
           continue;
         }
         //Logger.verb("DEBUG", "Child node: "+child.toString());
-        if (!parent.hasChild(child)) {
-          changed = true;
-          child.addParent(parent);
+        if (!node.artificial) {
+          if (!parent.hasChild(child) && reachables.contains(child)) {
+            Logger.verb("DEBUG", "Child node added: " + child.toString());
+            changed = true;
+            child.addParent(parent);
+          }
+        } else {
+          if (!parent.hasChild(child)) {
+            Logger.verb("DEBUG", "Child node added: " + child.toString());
+            changed = true;
+            child.addParent(parent);
+          }
         }
       }
     }
-    /*Set<NWindowNode> windows = NWindowNode.windowNodes;
+   /* Set<NWindowNode> windows = NWindowNode.windowNodes;
     Logger.verb("processAddView2", "windows count: "+windows.size());
     for (NWindowNode window: windows){
       //Logger.verb("DEBUG","window: " + window.toString());
+      //Logger.verb("DEBUG","window: " + window.toString());
       Set<NNode> reachableParentSet = new HashSet<>();
       Set<NNode> reachableChildSet = new HashSet<>();
+      reachableChildSet.addAll(childSet);
 
-      for (NNode parent: parentSet){
-        Boolean belongToTheWindow = containedInWindow(window, parent, new HashSet<>());
-        if (belongToTheWindow)
-          reachableParentSet.add(parent);
-      }
       Set<NNode> windowReachables;
-      if (flowgraph.hier.isActivityClass(window.c))
-        windowReachables = graphUtil.reachableNodes(flowgraph.allNActivityNodes.get(window.c));
-      else if (flowgraph.hier.isFragmentClass(window.c))
-        windowReachables = graphUtil.reachableNodes(flowgraph.allNFragmentNodes.get(window.c));
-      else
-        windowReachables = new HashSet<>();
- *//*     for (NNode node1: windowReachables) {
-        if (node1 instanceof NOpNode){
-          Logger.verb("DEBUG", "opnode: "+node1.toString());
+      windowReachables = graphUtil.reachableNodes(window);
+      for (NNode parent: parentSet){
+        if (windowReachables.contains(parent)) {
+          reachableParentSet.add(parent) ;
         }
-
-      }*//*
-      for (NNode child: childSet){
-
-        Boolean reachChild = true;
-        if (inflateProducer.containsKey(child)
-              && hier.isActivityClass(inflateProducer.get(child)))
-        {
-          if (inflateProducer.get(child) == window.c)
-          {
-            reachChild = true;
-          }
-          else
-          {
-            reachChild = false;
-          }
-        }
-        if (reachChild)
-          reachableChildSet.add(child);
       }
+     *//* for (NNode child: childSet){
+        if (windowReachables.contains(child)) {
+          reachableChildSet.add(child);
+        }
+      }*//*
       if (reachableParentSet.isEmpty()) {
-        //Logger.verb("DEBUG", "processAddView2: reachableParentSet is empty");
+        Logger.verb("DEBUG", "processAddView2: reachableParentSet is empty");
         continue;
       }
 
       if (reachableChildSet.isEmpty()) {
-        //Logger.verb("DEBUG", "processAddView2: reachableChildSet is empty");
+        Logger.verb("DEBUG", "processAddView2: reachableChildSet is empty");
         continue;
       }
       Logger.verb("processAddView2", "reachable parent count: "+reachableParentSet.size());

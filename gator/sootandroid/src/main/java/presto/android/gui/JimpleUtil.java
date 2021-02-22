@@ -81,7 +81,7 @@ public class JimpleUtil implements MethodNames {
       first = (IdentityStmt) m.retrieveActiveBody().getUnits().iterator().next();
     }
     if (!(first.getRightOp() instanceof ThisRef)) {
-      throw new RuntimeException();
+      throw new RuntimeException(m.getSignature()+" does not have this local");
     }
     return lhsLocal(first);
   }

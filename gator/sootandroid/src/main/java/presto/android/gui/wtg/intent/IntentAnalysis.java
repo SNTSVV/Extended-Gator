@@ -581,7 +581,7 @@ public class IntentAnalysis {
         for (NStartActivityOpNode startActivity : startActivities) {
           startActivitytoTarget.putAll(startActivity, implicitTargets);
         }
-      } else if (!explicitTargets.isEmpty()) {
+      }  else if (!explicitTargets.isEmpty()) {
         // build the map: startActivitytoTarget reached by explicit intent
         for (NStartActivityOpNode startActivity : startActivities) {
           startActivitytoTarget.putAll(startActivity, explicitTargets);

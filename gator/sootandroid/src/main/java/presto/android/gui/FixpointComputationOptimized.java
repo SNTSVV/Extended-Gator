@@ -72,10 +72,11 @@ public class FixpointComputationOptimized {
                     // View as parameter
                     if (target instanceof NAddView1OpNode
                             || (target instanceof NAddView2OpNode
-                                && reachables.contains(((NOpNode) target).getParameter()))) {
+                                && reachables.contains(((NOpNode) target).getParameter())
+                    /*&& reachables.contains(((NOpNode) target).getReceiver())*/)) {
                         MultiMapUtil.addKeyAndHashSetElement(
                                 solver.reachingParameterViews, (NOpNode) target, source);
-                        //Logger.verb("DEBUG","Add to reachingParameterViews: "+target+ " - " + source);
+
                         if (source instanceof NOpNode) {
                             //reverse
                             MultiMapUtil.addKeyAndHashSetElement(solver.reachedParameterViews,
@@ -105,7 +106,7 @@ public class FixpointComputationOptimized {
                     else if (target instanceof NSetListenerOpNode
                             && reachables.contains(((NSetListenerOpNode) target).getParameter())) {
                         if (source instanceof NOpNode) {
-                            //Logger.verb("FixpointOptimized", "ReachedListener: " + source.toString() + "--> "+ target.toString());
+                            Logger.verb("FixpointOptimized", "ReachedListener: " + source.toString() + "--> "+ target.toString());
 
                             //the result of source could flow to SetListener
                             //If source is NObjectNode, it will be taken care of later.
@@ -200,7 +201,6 @@ public class FixpointComputationOptimized {
             Set<NNode> reachables = solver.graphUtil.reachableNodes(windowNode);
             Logger.verb("windowReachability","targetNode count: "+reachables.size());
             for (NNode target : reachables) {
-
                 if (!(target instanceof NOpNode)) {
                     continue;
                 }
@@ -209,10 +209,12 @@ public class FixpointComputationOptimized {
                         || opNode instanceof NAddView1OpNode
                         || opNode instanceof NFindView2OpNode)
                        && reachables.contains(opNode.getReceiver())) {
-                  //Logger.verb("windowReachability","reachable: "+target);
+                    if(Configs.debugCodes.contains(Debug.WINDOW_REACHABILITY_DEBUG)) {
+                        Logger.verb("windowReachability","reachable: "+opNode + "--"+opNode.getReceiver());
+                    }
                     MultiMapUtil.addKeyAndHashSetElement(solver.reachingWindows, opNode, windowNode);
                 } else if (opNode instanceof NSetListenerOpNode
-                        && reachables.contains(opNode.getParameter())) {
+                      /* && reachables.contains(opNode.getParameter())*/) {
                     if (Configs.debugCodes.contains(Debug.LISTENER_DEBUG)) {
                         Logger.verb(FixpointComputationOptimized.class.getSimpleName(),
                                 "[WindowAsListener] " + windowNode + " -> " + opNode);

@@ -363,4 +363,10 @@ public class AndroidView implements IAndroidView {
   public Map<EventType, String> getInlineClickHandlers() {
     return this.inlineEventTypeMethodNameMap;
   }
+
+  @Override
+  public String toString() {
+    String addtionalInfo = String.format( " || id: %s - class: %s ",getId(),getSootClass().getName());
+    return super.toString() + addtionalInfo;
+  }
 }

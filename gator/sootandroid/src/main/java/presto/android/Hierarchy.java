@@ -408,11 +408,14 @@ public class Hierarchy {
         callbacks.add(c.getMethod("void <init>()"));
       }
       frameworkManaged.put(c, callbacks);
+      //Logger.verb("DEBUG", c+ "'s framework managed callbacks:");
       for (String sub : allSubsig) {
+
         // do we have a match in the application code?
         for (SootClass t = c; t.isApplicationClass(); t = t.getSuperclass()) {
           if (t.declaresMethod(sub)) {
             SootMethod m = t.getMethod(sub);
+            //Logger.verb("DEBUG", m.getSignature());
             if (!m.isConcrete()) {
               Logger.verb("WARNING", "Callback method :" + m.getName() + " in Class " + t.getName()
                       + " is not concrete");

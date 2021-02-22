@@ -40,6 +40,8 @@ public class Debug {
   public static final String VIEWPAGER_DEBUG = "viewPager_debug";
 
   public static final String FRAGMENT_DEBUG = "fragment_debug";
+
+  public static final String WINDOW_REACHABILITY_DEBUG = "windowReachability_debug";
   private String debugFileName;
 
   private File debugFile;

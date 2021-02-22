@@ -271,6 +271,7 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
     }
 
     val implicitIntentFilters = HashMap<NActivityNode, HashSet<IntentFilter>>()
+
     private fun processIntentFilter() {
         val filterManager = IntentFilterManager.v()
         val clsToFilters = filterManager.getAllFilters()
