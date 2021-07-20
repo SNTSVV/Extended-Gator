@@ -7,7 +7,7 @@
  * root directory.
  */
 
-package presto.android.gui.clients.regression.informationRetrieval
+package presto.android.gui.clients.atua.informationRetrieval
 
 import kotlin.math.log10
 import kotlin.math.pow

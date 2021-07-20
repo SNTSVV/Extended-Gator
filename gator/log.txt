@@ -1576,7 +1576,7 @@ Soot started on Wed Nov 11 11:11:34 CET 2020
 [processSetListener] [32mVERBOSE[0m NSetListenerOpNode[3535] virtualinvoke $r13.<android.widget.ImageButton: void setOnClickListener(android.view.View$OnClickListener)>($r18) @ <de.rampro.activitydiary.ui.generic.EditActivity$QHandler: void onQueryComplete(int,java.lang.Object,android.database.Cursor)>
 [processSetListener] [32mVERBOSE[0m NSetListernerOpNode: NSetListenerOpNode[3535] virtualinvoke $r13.<android.widget.ImageButton: void setOnClickListener(android.view.View$OnClickListener)>($r18) @ <de.rampro.activitydiary.ui.generic.EditActivity$QHandler: void onQueryComplete(int,java.lang.Object,android.database.Cursor)>
 [GUIAnalysis] [32mVERBOSE[0m [GUIAnalysis] End: 0.303353307 sec
-[GUIAnalysis] [32mVERBOSE[0m [presto.android.gui.clients.regression.GUIUserInteractionClient] Start
+[GUIAnalysis] [32mVERBOSE[0m [presto.android.gui.clients.atua.GUIUserInteractionClient] Start
 [INFO] [32mVERBOSE[0m GUIUserInteractionClient start
 [IntentFilterManager] [32mVERBOSE[0m define multiple launcher: actions: [android.intent.action.MAIN]; categories: [android.intent.category.LAUNCHER]; schemes: []; types: []; authorities: [], activity: de.rampro.activitydiary.ui.main.MainActivity
 [ExplicitForwardEdgeBuilder] [32mVERBOSE[0m Start buildWTGNodes
@@ -4851,7 +4851,7 @@ Soot started on Wed Nov 11 11:11:34 CET 2020
 [INFO] [32mVERBOSE[0m Number of unreachable modified methods: 0
 [INFO] [32mVERBOSE[0m Number of handled modified methods: 39
 [INFO] [32mVERBOSE[0m Number of unhandled modified methods: null
-[GUIAnalysis] [32mVERBOSE[0m [presto.android.gui.clients.regression.GUIUserInteractionClient] End: 12.94896345 sec
+[GUIAnalysis] [32mVERBOSE[0m [presto.android.gui.clients.atua.GUIUserInteractionClient] End: 12.94896345 sec
 [AnalysisEntrypoint] [32mVERBOSE[0m Soot stopped on Wed Nov 11 11:12:16 CET 2020
 [1;31m[DEBUG] Debug file at `/var/folders/wc/1z0f_yfx6d7815lg52q2jg3xjh7w1s/T/null-DEBUG-3665564151563395567.txt'.[0m
 ...... java -jar /Users/chanh-duc.ngo/phdproject/apk-static-analysis/gator/pygator/../tools/apktool_2.4.1.jar decode -f --no-src --output /var/folders/wc/1z0f_yfx6d7815lg52q2jg3xjh7w1s/T/gator-zeh8e407 apk/de.rampro.activitydiary_134.apk

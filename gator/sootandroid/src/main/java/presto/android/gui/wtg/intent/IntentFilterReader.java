@@ -71,6 +71,7 @@ public class IntentFilterReader {
             for (int idx = 0; idx < filterNodes.getLength(); idx++) {
               Node filterNode = filterNodes.item(idx);
               if (filterNode.getNodeName().equals("intent-filter")) {
+                Logger.verb("IntentFilterReader", "Reading intent-filter of activity: "+cls);
                 Node actionNode = filterNode.getFirstChild();
                 IntentFilter filter = new IntentFilter();
                 // assume no duplicated intent filter for any activity

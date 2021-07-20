@@ -959,8 +959,8 @@ public class FixpointSolver {
           }
           //Logger.verb("DEBUG", inflNode.toString());
           registerInflateNode(inflNode,opNode.callSite.getO2().getDeclaringClass());
-          Local thisLocal = jimpleUtil.thisLocal(opNode.callSite.getO2());
-          flowgraph.simpleNode(thisLocal).addEdgeTo(inflNode);
+          /*Local thisLocal = jimpleUtil.thisLocal(opNode.callSite.getO2());
+          flowgraph.simpleNode(thisLocal).addEdgeTo(inflNode);*/
           solutionResults.get(opNode).add(inflNode);
           recordViewProducers(inflNode, opNode);
 
@@ -1353,10 +1353,7 @@ public class FixpointSolver {
     LinkedList<NNode> nodeWorklist = Lists.newLinkedList();
     worklist.add(root);
     nodeWorklist.add(rootparent);
-    Boolean debug = false;
-    if (layoutId == 2131492893) {
-      debug = true;
-    }
+    Boolean debug = true;
     while (!worklist.isEmpty()) {
       AndroidView v = worklist.remove();
       NNode parent = nodeWorklist.remove();
@@ -1901,6 +1898,7 @@ public class FixpointSolver {
         //get root
         LinkedList<NNode> workingList = new LinkedList<>();
         workingList.add(parent);
+        HashSet<NNode> processedNodes = new HashSet<>();
         while (!workingList.isEmpty()) {
           NNode currentNode = workingList.pop();
           if (currentNode instanceof NWindowNode) {
@@ -1910,7 +1908,11 @@ public class FixpointSolver {
             Iterator<NNode> parentIt = currentNode.getParents();
             while (parentIt.hasNext()) {
               NNode parentNode = parentIt.next();
+              if (processedNodes.contains(parentNode)) {
+                continue;
+              }
               workingList.push(parentNode);
+              processedNodes.add(parentNode);
             }
           }
         }
@@ -1921,7 +1923,7 @@ public class FixpointSolver {
         }
       }
       for (NNode child : childSet) {
-        Logger.verb("DEBUG", "Child node: "+child.toString());
+        //Logger.verb("DEBUG", "Child node: "+child.toString());
         if (parent == child) {
 
           Logger.trace(this.getClass().getSimpleName(),
@@ -1929,8 +1931,13 @@ public class FixpointSolver {
 
           continue;
         }
+        if (!parent.hasChild(child)) {
+          Logger.verb("DEBUG", "Child node added: " + child.toString());
+          changed = true;
+          child.addParent(parent);
+        }
         //Logger.verb("DEBUG", "Child node: "+child.toString());
-        if (!node.artificial) {
+        /*if (!node.artificial && !reachables.isEmpty()) {
           if (!parent.hasChild(child) && reachables.contains(child)) {
             Logger.verb("DEBUG", "Child node added: " + child.toString());
             changed = true;
@@ -1942,7 +1949,7 @@ public class FixpointSolver {
             changed = true;
             child.addParent(parent);
           }
-        }
+        }*/
       }
     }
    /* Set<NWindowNode> windows = NWindowNode.windowNodes;

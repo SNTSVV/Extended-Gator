@@ -7,13 +7,13 @@
  * root directory.
  */
 
-package presto.android.gui.clients.regression.helper
+package presto.android.gui.clients.atua.helper
 
 import org.slf4j.LoggerFactory
 import presto.android.Logger
 import presto.android.MethodNames
 import presto.android.gui.GUIAnalysisOutput
-import presto.android.gui.clients.regression.GUIUserInteractionClient
+import presto.android.gui.clients.atua.GUIUserInteractionClient
 import presto.android.gui.graph.NVarNode
 import presto.android.gui.wtg.ds.WTGEdge
 import soot.*
@@ -880,6 +880,9 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
 //                        Logger.verb("DEBUG", "Top calling method of ${callback.signature} is got from ${executeCaller.signature}")
                 }
             }
+        }
+        if (callback.subSignature.equals(MethodNames.onActivityResultSubSig)) {
+            // looking for start
         }
         return callbackFound
     }
