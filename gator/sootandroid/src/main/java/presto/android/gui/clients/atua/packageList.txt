@@ -1,9 +1,0 @@
-bbc.mobile.news.ww
-com.amaze.filemanager
-com.citymapper.app.release
-com.nuzzel.android
-com.wikihow.wikihowapp
-com.yahoo.mobile.client.android.weather
-de.rampro.activitydiary
-org.videolan.vlc
-org.wikipedia
