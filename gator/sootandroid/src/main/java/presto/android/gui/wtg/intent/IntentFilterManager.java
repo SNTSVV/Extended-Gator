@@ -40,6 +40,7 @@ public class IntentFilterManager {
       filterMap.put(activity, filters);
     }
     filters.add(filter);
+    Logger.verb("IntentFilerManager", "addFilter for activity: "+activity);
     if (filter.isLauncherFilter()) {
       if (launcherFilter != null) {
         Logger.verb(getClass().getSimpleName(), "define multiple launcher: " + filter + ", " +

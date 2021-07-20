@@ -1044,9 +1044,10 @@ public class Flowgraph implements MethodNames {
     if (outsideRoot == null) {
       if (lhsNode != null) {
         inflate1 = new NInflate1OpNode(layoutIdNode, lhsNode, callSite, false);
-        Local inflater = jimpleUtil.thisLocal(caller);
+        //lhsNode.addEdgeTo(inflate1);
+        /*Local inflater = jimpleUtil.thisLocal(caller,s);
         NNode inflaterNode = simpleNode(inflater);
-        inflaterNode.addEdgeTo(inflate1);
+        inflaterNode.addEdgeTo(inflate1);*/
       }
     } else {
       // lhs = inflater.inflate(id, outside) ==>
@@ -1057,9 +1058,9 @@ public class Flowgraph implements MethodNames {
       NVarNode fakeLocalNode = varNode(fakeLocal);  // child
       NVarNode outsideRootNode = varNode(outsideRoot);  // parent
       inflate1 = new NInflate1OpNode(layoutIdNode, fakeLocalNode, callSite, false);
-      Local inflater = jimpleUtil.thisLocal(caller);
+     /* Local inflater = jimpleUtil.thisLocal(caller);
       NNode inflaterNode = simpleNode(inflater);
-      inflaterNode.addEdgeTo(inflate1);
+      inflaterNode.addEdgeTo(inflate1);*/
 
       NOpNode addView2 = new NAddView2OpNode(outsideRootNode, fakeLocalNode,
               new Pair<Stmt, SootMethod>(s, jimpleUtil.lookup(s)), false);

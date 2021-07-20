@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.sql.Statement;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
@@ -82,6 +83,17 @@ public class JimpleUtil implements MethodNames {
     }
     if (!(first.getRightOp() instanceof ThisRef)) {
       throw new RuntimeException(m.getSignature()+" does not have this local");
+    }
+    return lhsLocal(first);
+  }
+
+  public Local thisLocal(SootMethod m, Stmt s) {
+    IdentityStmt first = null;
+    synchronized (m) {
+      first = (IdentityStmt) m.retrieveActiveBody().getUnits().iterator().next();
+    }
+    if (!(first.getRightOp() instanceof ThisRef)) {
+      throw new RuntimeException(m.getSignature()+" does not have this local." + "Related statement: "+s );
     }
     return lhsLocal(first);
   }

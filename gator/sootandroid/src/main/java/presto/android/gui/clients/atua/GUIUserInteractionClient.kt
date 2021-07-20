@@ -7,9 +7,8 @@
 * root directory.
 */
 
-package presto.android.gui.clients.regression
+package presto.android.gui.clients.atua
 
-import fj.Hash
 import org.json.JSONArray
 import org.json.JSONObject
 import org.slf4j.LoggerFactory
@@ -19,8 +18,8 @@ import presto.android.gui.GUIAnalysisClient
 import presto.android.gui.GUIAnalysisOutput
 import presto.android.gui.PropertyManager
 import presto.android.gui.clients.energy.VarUtil
-import presto.android.gui.clients.regression.helper.CallbackFinder
-import presto.android.gui.clients.regression.helper.JavaSignatureFormatter
+import presto.android.gui.clients.atua.helper.CallbackFinder
+import presto.android.gui.clients.atua.helper.JavaSignatureFormatter
 import presto.android.gui.graph.*
 import presto.android.gui.listener.EventType
 import presto.android.gui.wtg.EventHandler
@@ -28,9 +27,8 @@ import presto.android.gui.wtg.WTGAnalysisOutput
 import presto.android.gui.wtg.WTGBuilder
 import presto.android.gui.wtg.ds.WTG
 import presto.android.gui.wtg.ds.WTGEdge
-import presto.android.gui.wtg.flowgraph.NLauncherNode
-import presto.android.gui.wtg.intent.IntentAnalysisInfo
-import presto.android.gui.wtg.intent.IntentField
+import presto.android.gui.wtg.flowgraph.NStartActivityOpNode
+import presto.android.gui.wtg.intent.IntentAnalysis
 import presto.android.gui.wtg.intent.IntentFilter
 import presto.android.gui.wtg.intent.IntentFilterManager
 import presto.android.xml.DefaultXMLParser
@@ -56,6 +54,7 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         val allWidgetIds = HashMap<Int, NIdNode>()
         val allActivities = HashMap<Int, String>()
         val allDialogs = HashMap<Int, String>()
+        val allDialogClass = HashMap<String, ArrayList<String>>()
         val allActivityOptionMenuItems = HashMap<String, ArrayList<String>>()
         val allActivityContextMenuItems = HashMap<String, ArrayList<String>>()
         val allWindow_Widget_EventHandlers = HashMap<String, HashMap<String, HashMap<String, ArrayList<String>>>>() // window -> widget -> event
@@ -87,7 +86,7 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         val allLayoutIdNodes = ArrayList<String>()
         val allInflateNodes = ArrayList<String>()
         val allReachedWindow = ArrayList<Int>()
-
+        val activeActivities = ArrayList<String>()
 
         val unreachableMethods = ArrayList<String>()
         val menuItemsTexts = HashMap<String, ArrayList<String>>() //menuitemNode -> texts
@@ -97,6 +96,8 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
     }
 
     val currentCallingGraph = Stack<String>()
+    var intentAnalysis: IntentAnalysis? = null
+    var appPackage: String=""
     private val log by lazy { LoggerFactory.getLogger(this::class.java) }
     override fun run(output: GUIAnalysisOutput) {
         guiAnalysisOutput = output
@@ -104,29 +105,31 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         //get all active activities
         initWTG(output)
         processIntentFilter()
+
+
         val apkPath = Paths.get(Configs.project)
         //val packageFile = Files.list(apkPath.parent).filter { it.fileName.toString().contains(output.appPackageName) && it.fileName.toString().endsWith("-package.txt") }.findFirst().orElse(null)
-        val apkName = if (Configs.appPackage.equals("")) {
+        appPackage = if (Configs.appPackage.equals("")) {
             output.appPackageName
         } else {
             Configs.appPackage
         }
         val diffFile = Files.list(apkPath.parent).filter { it.fileName.toString().contains(output.appPackageName) && it.fileName.toString().endsWith("-diff.json") }.findFirst().orElse(null)
         if (diffFile != null) {
-            readAppDiffFile(diffFile.toString(), apkName)
+            readAppDiffFile(diffFile.toString(), appPackage, output)
         }
         else
         {
-            Scene.v().applicationClasses.filter{ it.name.startsWith(apkName)}. forEach {
+            Scene.v().applicationClasses.filter{ it.name.startsWith(appPackage)}. forEach {
                 it.methods.forEach {
                     modifiedMethods.add(it.signature)
                 }
             }
         }
-        findModifiedMethodInvocation(apkName)
+        findModifiedMethodInvocation(appPackage)
         Logger.verb("DEBUG", "Number of event handler: ${allMeaningfullEventHandlers.size}")
         ComponentRelationCalculation.instance.computeComponentCorrelationScore()
-        writeInstrumentationList(apkName, Paths.get("./"))
+        writeInstrumentationList(appPackage, Paths.get("./"))
     }
 
     private fun initWTG(output: GUIAnalysisOutput) {
@@ -137,6 +140,7 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         wtgBuilder.build(output)
         val wtgAO = WTGAnalysisOutput(output, wtgBuilder)
         val wtg = wtgAO.wtg
+        intentAnalysis = wtgAO.intentAnalysis
         //get All WidgetIds
         output.flowgraph.allNWidgetIdNodes.forEach { t, u ->
             allWidgetIds[t] = u
@@ -148,8 +152,10 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         val map = output.activities.map { activityId++ to it.name }.toMap().filter { activities.contains(it.value) }
         map.forEach { t, u -> allActivities[t] = u }
         output.flowgraph.allNNodes.forEach {
-            if (it is NWindowNode || it is NOptionsMenuNode || it is NContextMenuNode) {
+            if (it is NWindowNode || it is NOptionsMenuNode || it is NContextMenuNode || it is NDialogNode) {
                 if (it is NWindowNode && activities.contains(it.c.name))
+                    getAllWindowWidgets(it as NObjectNode)
+                if (it is NDialogNode)
                     getAllWindowWidgets(it as NObjectNode)
                 if (it is NOptionsMenuNode && activities.contains(it.ownerActivity.name))
                     getAllWindowWidgets(it as NObjectNode)
@@ -178,6 +184,7 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         }
         val edges = wtg.edges
         for (e in edges) {
+            e.finalTarget
             val sourceNode = e.sourceNode
             if (sourceNode is NActivityNode && !activities.contains(sourceNode.c.name)) {
                 continue
@@ -205,6 +212,7 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
                 transition["target"] = targetContextMenu
                 transition["widget"] = e.guiWidget.toString()
                 transition["action"] = e.eventType.toString()
+                //transition["stackOps"] = e.stackOps.toString()
                 activityTransitions.add(transition)
             }
 
@@ -221,6 +229,7 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
                 transition["target"] = target
                 transition["widget"] = e.guiWidget.toString()
                 transition["action"] = e.eventType.toString()
+               // transition["stackOps"] = e.stackOps.toString()
                 transitions.add(transition)
             }
 
@@ -237,6 +246,7 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
                 transition["target"] = target
                 transition["widget"] = e.guiWidget.toString()
                 transition["action"] = e.eventType.toString()
+                //transition["stackOps"] = e.stackOps.toString()
                 transitions.add(transition)
             }
 
@@ -253,6 +263,7 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
                 transition["target"] = targetActivity
                 transition["widget"] = e.guiWidget.toString()
                 transition["action"] = e.eventType.toString()
+                //transition["stackOps"] = e.stackOps.toString()
                 allDialogActivityTransitions[sourceDialog]!!.add(transition)
             }
 
@@ -268,6 +279,11 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
                 ComponentRelationCalculation.instance.registerEvent(e)
             }
         }
+
+        output.flowgraph.allNNodes.filter { it is NStartActivityOpNode }.forEach { startActivityNode ->
+            val targets = wtgAO.intentAnalysis.getApproximateTargetActivity(startActivityNode as NStartActivityOpNode)
+            activeActivities.addAll(targets)
+        }
     }
 
     val implicitIntentFilters = HashMap<NActivityNode, HashSet<IntentFilter>>()
@@ -275,7 +291,6 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
     private fun processIntentFilter() {
         val filterManager = IntentFilterManager.v()
         val clsToFilters = filterManager.getAllFilters()
-        val intentAnalysisInfo = IntentAnalysisInfo()
 
         clsToFilters.forEach { actName, filters ->
             val activityNode = guiAnalysisOutput!!.flowgraph.activityNode(Scene.v().getSootClass(actName))
@@ -285,8 +300,7 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
             }
             val hasDataIntentFilters = implicitIntentFilters.get(activityNode)!!
             filters.forEach {filter ->
-                if (filter.actions.filterNot { it == "android.intent.action.MAIN"}.isNotEmpty()
-                        && (filter.dataSchemes.isNotEmpty() || filter.dataTypes.isNotEmpty()))
+                if (filter.actions.filterNot { it == "android.intent.action.MAIN"}.isNotEmpty())
                 {
                     hasDataIntentFilters.add(filter)
                 }
@@ -381,15 +395,25 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         }
     }
 
-    internal fun readAppDiffFile(filename: String, refinedPackageName: String) {
+    internal fun readAppDiffFile(filename: String, refinedPackageName: String, guiAnalysisOutput: GUIAnalysisOutput) {
         val appDiffFile = File(filename)
         if (!appDiffFile.exists()) {
             log.error("Cannot find app diff file: $filename")
             throw Exception()
         }
-
         val appdiffJson = JSONObject(String(Files.readAllBytes(appDiffFile.toPath())))
         val modMethods = appdiffJson.get("methodsChanged") as JSONArray
+        registerUpdatedMethods(modMethods, refinedPackageName)
+        val pkgList = setupPkgList()
+        if (!pkgList.contains(guiAnalysisOutput.appPackageName)) {
+            val addMethods = appdiffJson.get("methodsAdded") as JSONArray
+            registerUpdatedMethods(addMethods, refinedPackageName)
+        }
+    }
+
+
+
+    private fun registerUpdatedMethods(modMethods: JSONArray, refinedPackageName: String) {
         for (m in modMethods) {
             val sootSignature = JavaSignatureFormatter.translateJavaLowLevelSignatureToSoot(m.toString())
             if (!Scene.v().containsMethod(sootSignature))
@@ -494,7 +518,14 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         val transition = HashMap<String, String>()
         transition["target"] = targetWindow
         transition["widget"] = e.guiWidget.toString()
-        transition["action"] = e.eventType.toString()
+        //transition["stackOps"] = e.stackOps.toString()
+        if (e.guiWidget is NMenuNode && e.eventType == EventType.click ) {
+            transition["action"] = "press_menu";
+        } else {
+            transition["action"] = e.eventType.toString()
+        }
+
+
         transitions.add(transition)
 //            }
     }
@@ -534,6 +565,20 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
             transition["action"] = e.eventType.toString()
             allActivityDialogTransitions[activityName]!!.add(transition)
         }
+    }
+
+    private fun setupPkgList(): ArrayList<String> {
+        val pkgList = ArrayList<String>()
+        pkgList.add("bbc.mobile.news.ww")
+        pkgList.add("com.amaze.filemanager")
+        pkgList.add("com.citymapper.app.release")
+        pkgList.add("com.nuzzel.android")
+        pkgList.add("com.wikihow.wikihowapp")
+        pkgList.add("com.yahoo.mobile.client.android.weather")
+        pkgList.add("de.rampro.activitydiary")
+        pkgList.add("org.videolan.vlc")
+        pkgList.add("org.wikipedia")
+        return pkgList
     }
 
     private fun getAllOptionMenuItems(output: GUIAnalysisOutput) {
@@ -600,7 +645,8 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
 
     private fun getAllDialogs(output: GUIAnalysisOutput, wtg: WTG) {
         output.flowgraph.allNDialogNodes.forEach { k, v ->
-            allDialogs[v.id] = v.c.name + " " + v.allocMethod.declaringClass.name
+//            allDialogs[v.id] = v.c.name + " " + v.allocMethod.signature + " " + v.allocStmt
+            allDialogs[v.id] = v.c.name + " " + v.allocMethod + " " + v.allocStmt
             val dialogName = v.classType.name
             val owners = wtg.getOwnerActivity(wtg.getNode(v))
 
@@ -613,8 +659,27 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
                     allActivity_Dialogs[it.toString()]!!.add(dialogName)
                 }
             }
-
         }
+        allDialogClass.put("applicationDialogs", ArrayList())
+        output.flowgraph.hier.applicationDialogClasses.forEach {
+            allDialogClass.get("applicationDialogs")!!.add(it.name)
+        }
+        allDialogClass.put("libraryDialogs", ArrayList())
+        output.flowgraph.hier.libraryDialogClasses.forEach {
+            allDialogClass.get("libraryDialogs")!!.add(it.name)
+        }
+        val dialogFragment1 = Scene.v().getSootClass("android.app.DialogFragment")
+        val dialogFragment2 = Scene.v().getSootClass("android.support.v4.app.DialogFragment")
+        allDialogClass.put("dialogFragments", ArrayList())
+        output.flowgraph.hier.appClasses.forEach {
+            if (output.flowgraph.hier.isSubclassOf(it,dialogFragment1)
+                    || output.flowgraph.hier.isSubclassOf(it,dialogFragment2)
+            ) {
+                allDialogClass.get("dialogFragments")!!.add(it.name)
+            }
+        }
+
+
     }
 
     private fun addElementToAllWindow_Widget_EventHandler(
@@ -720,15 +785,15 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
     private fun writeInstrumentationList(apkName: String, outputDir: Path): Path {
         val outputMap = HashMap<String, Any>()
         outputMap["outputAPK"] = apkName
+        outputMap["appPackage"] = apkName
+        outputMap["activeActivities"] = activeActivities
         outputMap["allActivityNodes"] = allActivityNodes
-        outputMap["allDialogs"] = allDialogs
+        outputMap["allDialogs"] = allDialogClass
         outputMap["allActivityDialogs"] = allActivity_Dialogs
         outputMap["allActivityOptionMenuItems"] = allActivityOptionMenuItems
         outputMap["allWidgetEvent"] = produceAllWidgetEvent()
         outputMap["activityAlias"] = produceActivityAlias()
-//            //outputMap["allCallbacks"] = allCallbacks
-//            //outputMap["allStatements"] = allStatements
-//            //outputMap["allMethods"] = allMethods
+
         outputMap["modifiedMethods"] = modifiedMethods
         outputMap["modiMethodInvocation"] = produceViewInvocationHashMap()
         outputMap["modiMethodTopCaller"] = produceModifiedMethodTopCaller()
@@ -737,15 +802,10 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         outputMap["allWindow_Widgets"] = allWindow_Widgets
         outputMap["allWindow_Widget_EventHandlers"] = allWindow_Widget_EventHandlers
         outputMap["allTransitions"] = allTransitions
-//        outputMap["allStrings"] = allResourceStrings
+
         outputMap["menuItemTexts"] = menuItemsTexts
         outputMap["windowHandlers"] = produceWindowHandlers(ComponentRelationCalculation.instance.windowHandlersMap)
-//            outputMap["widgetTexts"]= widgetTexts
-//            outputMap["allNodes"] = allNodes
-//            outputMap["allOpNodes"] = allOpNodes
-//            outputMap["allLayoutIdNodes"] = allLayoutIdNodes
-//            outputMap["allInflateNodes"] = allInflateNodes
-//            outputMap["allFragmentNodes"] = allFragmentNodes
+
         outputMap["unhandledMethods"] = notAppearInTargetCallingMethods
         outputMap["unreachableMethods"] = unreachableMethods
         outputMap["unreachableModifiedMethods"] = produceUnreachableModifiedMethodsSimple()
@@ -753,23 +813,14 @@ public class GUIUserInteractionClient : GUIAnalysisClient {
         outputMap["allUnreachedActivity"] = produceUnreachedActivity()
         outputMap["numberOfModifiedMethods"] = modifiedMethods.size
         outputMap["numberOfHandledModifiedMethods"] = modMethodInvocation.size
-//            outputMap["numberOfUnhandledModifiedMethods"] = (outputMap["unhandleModifiedMethod"] as HashMap<*,*>).size
+
         outputMap["numberOfNotFoundModifiedMethods"] = notFoundModifiedMethods.size
         outputMap["numberOfUnreachableModifiedMethods"] = (outputMap["unreachableModifiedMethods"] as List<*>).size
-//            outputMap["allEventHandlers"] = allEventHandlers
-//            outputMap["ActivityCorrelation"] = ComponentRelationCalculation.instance.componentRelationScore.filter { it.value>0.0 }
-//            outputMap["EventHandlerCorrelation"] = produceEventCorrelations(ComponentRelationCalculation.instance.eventComponentRelationScore.filter { it.value>0.0})
         outputMap["methodDependency"] = produceMethodDependency(ComponentRelationCalculation.instance.eventHandlersDependencyCount)
         outputMap["eventHandlerDependency"] = produceEventHandlerDependency(ComponentRelationCalculation.instance.eventHandlersDependencyCount)
         outputMap["eventDependency"] = produceEventDependency(ComponentRelationCalculation.instance.eventsDependencyCount)
         outputMap["windowsDependency"] = produceWindowDependency(ComponentRelationCalculation.instance.windowsDependencyCount)
-        //outputMap["window_ClassWeight"] = produceWindowClassWeight(ComponentRelationCalculation.instance.windowClassWeights)
-//            outputMap["classDependencyApperance"] = ComponentRelationCalculation.instance.classDependencyAppearance
-//            outputMap["classDependencyInverseFrequency"] = ComponentRelationCalculation.instance.classDependencyInverseFrequency
-        //outputMap["eventHandler_ClassWeight"] = produceEventHandlerClassWeight(ComponentRelationCalculation.instance.eventHandlerClassWeights)
         outputMap["event_ClassWeight"] = produceEventClassWeight(ComponentRelationCalculation.instance.eventClassWeights)
-        //outputMap["event_Event_Correlation"] = produceEventCorrelations(ComponentRelationCalculation.instance.eventCorrelationScores)
-        //outputMap["window_Window_Correlation"] = produceWindowCorrelations(ComponentRelationCalculation.instance.windowCorrelationScores)
         outputMap["event_window_Correlation"] = produceEventWindowCorrelations(ComponentRelationCalculation.instance.eventWindowCorrelationScores)
         outputMap["intentFilters"] = produceIntentFilters(implicitIntentFilters)
         val instrumentResultFile = if (Configs.pathoutfilename != null && Configs.pathoutfilename.isNotBlank()) {

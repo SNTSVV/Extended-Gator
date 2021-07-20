@@ -7,11 +7,10 @@
  * root directory.
  */
 
-package presto.android.gui.clients.regression
+package presto.android.gui.clients.atua
 
 import presto.android.gui.graph.NNode
 import presto.android.gui.listener.EventType
-import soot.SootClass
 import soot.SootMethod
 
  data class ActivityEvent (

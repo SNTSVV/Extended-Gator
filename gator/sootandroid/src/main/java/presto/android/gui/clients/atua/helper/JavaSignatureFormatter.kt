@@ -7,7 +7,7 @@
  * root directory.
  */
 
-package presto.android.gui.clients.regression.helper
+package presto.android.gui.clients.atua.helper
 
 /**
  * Created by Fabrizio P.
@@ -103,6 +103,7 @@ object JavaSignatureFormatter {
                 p++
             } else if (c == '[') {
                 post = "[]"
+                p=0
             } else {
                 sig += translate(c)
                 sig += post

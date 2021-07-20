@@ -7,10 +7,10 @@
  * root directory.
  */
 
-package presto.android.gui.clients.regression
+package presto.android.gui.clients.atua
 
 import presto.android.Logger
-import presto.android.gui.clients.regression.informationRetrieval.InformationRetrieval
+import presto.android.gui.clients.atua.informationRetrieval.InformationRetrieval
 import presto.android.gui.graph.NActivityNode
 import presto.android.gui.graph.NDialogNode
 import presto.android.gui.graph.NObjectNode
