@@ -7,7 +7,7 @@
  * root directory.
  */
 
-rootProject.name = 'gator'
+rootProject.name = 'extended-gator'
 include 'commons'
 include 'sootandroid'
 
