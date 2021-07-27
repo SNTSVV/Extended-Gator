@@ -2,7 +2,13 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/gator-3.7.iml" filepath="$PROJECT_DIR$/.idea/gator-3.7.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/extended-gator.iml" filepath="$PROJECT_DIR$/.idea/modules/extended-gator.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/commons/extended-gator.commons.iml" filepath="$PROJECT_DIR$/.idea/modules/commons/extended-gator.commons.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/commons/extended-gator.commons.main.iml" filepath="$PROJECT_DIR$/.idea/modules/commons/extended-gator.commons.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/commons/extended-gator.commons.test.iml" filepath="$PROJECT_DIR$/.idea/modules/commons/extended-gator.commons.test.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/sootandroid/extended-gator.sootandroid.iml" filepath="$PROJECT_DIR$/.idea/modules/sootandroid/extended-gator.sootandroid.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/sootandroid/extended-gator.sootandroid.main.iml" filepath="$PROJECT_DIR$/.idea/modules/sootandroid/extended-gator.sootandroid.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/sootandroid/extended-gator.sootandroid.test.iml" filepath="$PROJECT_DIR$/.idea/modules/sootandroid/extended-gator.sootandroid.test.iml" />
     </modules>
   </component>
 </project>
