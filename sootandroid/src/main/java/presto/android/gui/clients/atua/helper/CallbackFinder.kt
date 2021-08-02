@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory
 import presto.android.Logger
 import presto.android.MethodNames
 import presto.android.gui.GUIAnalysisOutput
-import presto.android.gui.clients.atua.GUIUserInteractionClient
+import presto.android.gui.clients.atua.EWTGGeneratorClient
 import presto.android.gui.graph.NVarNode
 import presto.android.gui.wtg.ds.WTGEdge
 import soot.*
@@ -128,7 +128,7 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
         {
             //Logger.verb("GetIntent", "Callback: ${callback.signature}")
             val outerClass:SootClass = getMostOuterClass(callback.declaringClass)
-            if (GUIUserInteractionClient.guiAnalysisOutput!!.flowgraph.hier.isActivityClass(outerClass))
+            if (EWTGGeneratorClient.guiAnalysisOutput!!.flowgraph.hier.isActivityClass(outerClass))
             {
                 //Logger.verb("GetIntent", "Activity: ${outerClass.name}")
                 if (implicitIntentActivities.contains(outerClass))
@@ -292,7 +292,7 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
                     val initializingClassMethods = ArrayList<SootMethod>()
                     //if callback's class is View, find windows contains this widget of this callback's class type
                     if (guiAnalysisOutput.flowgraph.hier.isViewClass(callback.declaringClass)) {
-                        val simpleWindowWidgetClass = GUIUserInteractionClient.simpleWindow_Widgets
+                        val simpleWindowWidgetClass = EWTGGeneratorClient.simpleWindow_Widgets
                         simpleWindowWidgetClass.forEach { window, viewClasses ->
                             if (viewClasses.contains(callback.declaringClass)) {
                                 val windowClass = window.classType
@@ -452,7 +452,7 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
                 break
         }
         if (!reachable) {
-            GUIUserInteractionClient.unreachableMethods.add(callback.signature)
+            EWTGGeneratorClient.unreachableMethods.add(callback.signature)
             Logger.verb("CallbackFinder","Unreachable method: "+callback.signature)
         }
 
@@ -635,27 +635,27 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
         currentCallingGraph.push(callBack.signature)
         if (modMethod.equals(callBack)) //first call
         {
-            if (!GUIUserInteractionClient.modMethodInvocation.containsKey(modMethod.signature))
+            if (!EWTGGeneratorClient.modMethodInvocation.containsKey(modMethod.signature))
             {
                 val eventHandlers = getEventHandlers(modMethod.signature)
                 if (eventHandlers.size>0)
                 {
                     //Logger.verb("DEBUG", "${modMethod.signature} is event handler")
-                    addMethodInvocation(modMethod.signature, eventHandlers, GUIUserInteractionClient.modMethodInvocation)
-                    addMethodInvocation(modMethod.signature, eventHandlers, GUIUserInteractionClient.cacheMethodInvocation)
+                    addMethodInvocation(modMethod.signature, eventHandlers, EWTGGeneratorClient.modMethodInvocation)
+                    addMethodInvocation(modMethod.signature, eventHandlers, EWTGGeneratorClient.cacheMethodInvocation)
                     return true
                 }
 
             }
         }
-        if (!modMethod.equals(callBack) && GUIUserInteractionClient.cacheMethodInvocation.containsKey(callBack.signature))
+        if (!modMethod.equals(callBack) && EWTGGeneratorClient.cacheMethodInvocation.containsKey(callBack.signature))
         // callback method is not a GUIElement but it can be processed before
         {
             // if it is, add callback's handlers
             //Logger.verb("DEBUG", "${callBack.signature} has invocation ")
             //Logger.verb("DEBUG", "${modMethod.signature}'s invocation is ${cacheMethodInvocation[callBack.signature]!!}")
-            addMethodInvocation(modMethod.signature, GUIUserInteractionClient.cacheMethodInvocation[callBack.signature]!!, GUIUserInteractionClient.modMethodInvocation)
-            addMethodInvocation(modMethod.signature, GUIUserInteractionClient.cacheMethodInvocation[callBack.signature]!!, GUIUserInteractionClient.cacheMethodInvocation)
+            addMethodInvocation(modMethod.signature, EWTGGeneratorClient.cacheMethodInvocation[callBack.signature]!!, EWTGGeneratorClient.modMethodInvocation)
+            addMethodInvocation(modMethod.signature, EWTGGeneratorClient.cacheMethodInvocation[callBack.signature]!!, EWTGGeneratorClient.cacheMethodInvocation)
         } else{
             //Logger.verb("DEBUG", "Callback: ${callBack.signature}")
             if (notAppearInTargetCallingMethods.contains(callBack.signature))
@@ -665,10 +665,10 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
             {
                 //if callback is an event handler, add event handlers related to callback
                 //Logger.verb("DEBUG", "${modMethod.signature}'s invocation is ${eventHandlers}")
-                addMethodInvocation(modMethod.signature, eventHandlers, GUIUserInteractionClient.modMethodInvocation)
-                addMethodInvocation(modMethod.signature, eventHandlers, GUIUserInteractionClient.cacheMethodInvocation)
+                addMethodInvocation(modMethod.signature, eventHandlers, EWTGGeneratorClient.modMethodInvocation)
+                addMethodInvocation(modMethod.signature, eventHandlers, EWTGGeneratorClient.cacheMethodInvocation)
                 //add callback invocation to cache
-                addMethodInvocation(callBack.signature, eventHandlers, GUIUserInteractionClient.cacheMethodInvocation)
+                addMethodInvocation(callBack.signature, eventHandlers, EWTGGeneratorClient.cacheMethodInvocation)
             } else {
                 //Logger.verb("DEBUG", "${callBack.signature} is not an event handler.")
                 // if not, try to find its invoked callback
@@ -896,8 +896,8 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
             if(findCallingEvents(modMethod, m, refinedPackageName))
             {
                 //add eventhandlers of each method for current callback invocation
-                if (GUIUserInteractionClient.cacheMethodInvocation.contains(m.signature))
-                    addMethodInvocation(callBack.signature, GUIUserInteractionClient.cacheMethodInvocation[m.signature]!!, GUIUserInteractionClient.cacheMethodInvocation)
+                if (EWTGGeneratorClient.cacheMethodInvocation.contains(m.signature))
+                    addMethodInvocation(callBack.signature, EWTGGeneratorClient.cacheMethodInvocation[m.signature]!!, EWTGGeneratorClient.cacheMethodInvocation)
                 return true
             }
         return false
@@ -1007,7 +1007,7 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
 //        if (!GUIUserInteractionClient.allEventHandlers.contains(handler))
 //            return ArrayList()
         var guiElements= ArrayList<WTGEdge>()
-        val i = GUIUserInteractionClient.widgetEvents.iterator()
+        val i = EWTGGeneratorClient.widgetEvents.iterator()
         if (i != null) {
             while (i.hasNext()) {
                 val element = i.next()
@@ -1020,9 +1020,9 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
                 }
             }
         }
-        if (!GUIUserInteractionClient.allMeaningfullEventHandlers.contains(handler) && guiElements.isEmpty())
+        if (!EWTGGeneratorClient.allMeaningfullEventHandlers.contains(handler) && guiElements.isEmpty())
         {
-            GUIUserInteractionClient.allCallbacks.filter {
+            EWTGGeneratorClient.allCallbacks.filter {
                 it.second.contains(handler)
             }.forEach {
                 val invokedEventHandler = it.first

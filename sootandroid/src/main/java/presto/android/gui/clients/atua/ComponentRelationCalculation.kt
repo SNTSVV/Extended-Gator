@@ -260,7 +260,7 @@ class ComponentRelationCalculation {
 
     private fun countAllEventHandlersClassDependency() {
         Logger.verb("DEBUG", "Count event handler's dependency classes")
-        val flowgraph = GUIUserInteractionClient.guiAnalysisOutput!!.flowgraph
+        val flowgraph = EWTGGeneratorClient.guiAnalysisOutput!!.flowgraph
         flowgraph.allNActivityNodes.map { it.key }.forEach {
             val activityMethods = it.methods.filter { methodDependencyCounts.containsKey(it) }
             activityMethods.forEach {
@@ -292,7 +292,7 @@ class ComponentRelationCalculation {
     fun computeEventHandlerCorrelationScore(){
         methodRecursiveDependencyCounts.filter { map->
             //Get only event handlers related to modified methods
-            GUIUserInteractionClient.modMethodInvocation.any { it.value.any { it.eventHandlers.contains(map.key) || it.callbacks.any { it.eventHandler==map.key } } }
+            EWTGGeneratorClient.modMethodInvocation.any { it.value.any { it.eventHandlers.contains(map.key) || it.callbacks.any { it.eventHandler==map.key } } }
         }. forEach { handler1, classDependencies1 ->
             methodRecursiveDependencyCounts.filterNot { it.key==handler1 }. forEach { handler2, classDependencies2 ->
                /* if (!eventComponentRelationScore.containsKey(Pair(handler1,handler2))
@@ -395,7 +395,7 @@ class ComponentRelationCalculation {
             }
         }
         //Count its superclass as dependency
-        val flowgraph = GUIUserInteractionClient.guiAnalysisOutput!!.flowgraph
+        val flowgraph = EWTGGeneratorClient.guiAnalysisOutput!!.flowgraph
 //        val superclasses = flowgraph.hier.getSupertypes(method.declaringClass).filter { it.isApplicationClass && it!=method.declaringClass }
 //        dependencies.addAll(superclasses)
         //classDependency.add(method.declaringClass)
@@ -436,7 +436,7 @@ class ComponentRelationCalculation {
             val windowMethods = HashSet<SootMethod>()
             windowMethods.addAll(events.filter { it.source == queryWindow }.flatMap { it.eventHandlers })
             //get all propriate methods in queryWindow's class'superType
-            GUIUserInteractionClient.guiAnalysisOutput!!.flowgraph.hier.getSupertypes(queryWindow.classType).forEach {
+            EWTGGeneratorClient.guiAnalysisOutput!!.flowgraph.hier.getSupertypes(queryWindow.classType).forEach {
                 windowMethods.addAll(it.methods.filter { methodRecursiveDependencyCounts.containsKey(it) })
             }
             windowMethods.addAll(queryWindow.classType.methods.filter {methodRecursiveDependencyCounts.containsKey(it) })
@@ -489,8 +489,8 @@ class ComponentRelationCalculation {
 
 
     private fun isAsyncClass(newClass: SootClass) =
-            GUIUserInteractionClient.guiAnalysisOutput!!.flowgraph.hier.isSubclassOf(newClass.name, "android.os.AsyncTask") ||
-                    GUIUserInteractionClient.guiAnalysisOutput!!.flowgraph.hier.isSubclassOf(newClass.name, "java.lang.Runnable")
+            EWTGGeneratorClient.guiAnalysisOutput!!.flowgraph.hier.isSubclassOf(newClass.name, "android.os.AsyncTask") ||
+                    EWTGGeneratorClient.guiAnalysisOutput!!.flowgraph.hier.isSubclassOf(newClass.name, "java.lang.Runnable")
 
     class Event (val source: NObjectNode,
                  val eventHandlers: Set<SootMethod>,

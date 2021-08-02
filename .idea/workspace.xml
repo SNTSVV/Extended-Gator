@@ -37,7 +37,7 @@
     </system>
   </component>
   <component name="Git.Settings">
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="NamedScopeManager">
     <scope name="atua" pattern="src[gator.sootandroid.main]:presto.android.gui.clients.atua.*||src[gator.sootandroid.main]:presto.android.gui.clients.atua.helper.*||src[gator.sootandroid.main]:presto.android.gui.clients.atua.informationRetrieval.*" />

@@ -11,7 +11,7 @@ package presto.android;
 import org.junit.Assert;
 import presto.android.Configs.AsyncOpStrategy;
 import presto.android.Configs.TestGenStrategy;
-import presto.android.gui.clients.atua.GUIUserInteractionClient;
+import presto.android.gui.clients.atua.EWTGGeneratorClient;
 import soot.Pack;
 import soot.PackManager;
 import soot.SceneTransformer;
@@ -152,7 +152,7 @@ public class Main {
     //Configs.debugCodes.add(Debug.LISTENER_DEBUG);
 //    Configs.debugCodes.add(Debug.WORKLIST_DEBUG);
 //      Configs.workerNum = 8;
-    Configs.clients.add(GUIUserInteractionClient.class.getName());
+    Configs.clients.add(EWTGGeneratorClient.class.getName());
     Configs.processing();
   }
 
