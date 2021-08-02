@@ -37,12 +37,9 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
                       val topCallingModifiedMethods: HashMap<String, ArrayList<String>>,
                       val implicitIntentActivities: Set<SootClass>,
                       val intentCallingMethods: HashMap<String, HashSet<SootClass>>) {
-    //For debug
-    val debugCallback = "com.amaze.filemanager.asynchronous.services.ZipService\$CompressAsyncTask: void compressFile(java.io.File,java.lang.String)"
-    var callbackDebug = false
 
     val currentCallingGraph = Stack<String>()
-
+    var callbackDebug = false
     val cacheTopCallingMethods = HashMap<String, ArrayList<String>>()
 
     val methodDependencyVectors = HashMap<SootMethod, HashSet<SootClass>>()
@@ -53,7 +50,6 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
          recordAsyncTaskUsage()
          val modMethodInvocation = HashMap<String, ArrayList<WTGEdge>>()
          methodSignatureList.forEach {
-            callbackDebug = false
              if (Scene.v().containsMethod(it))
             {
                 val sootMethod = Scene.v().getMethod(it)
@@ -104,20 +100,16 @@ class CallbackFinder (val guiAnalysisOutput: GUIAnalysisOutput,
                     }
                 }
                 return true
-                Logger.verb("DEBUG", "Top calling method of ${modMethod.signature} is got from ${callback.signature}")
+                //Logger.verb("DEBUG", "Top calling method of ${modMethod.signature} is got from ${callback.signature}")
             }
             else
             {
-                Logger.verb("DEBUG", "Processed callback. No more calling method found for ${callback.signature}.")
+                //Logger.verb("DEBUG", "Processed callback. No more calling method found for ${callback.signature}.")
                 return true
             }
         }
         currentCallingGraph.push(callback.signature)
         //ComponentRelationCalculation.instance.registerMethod(method = callback)
-        if (callback.signature.contains(debugCallback))
-        {
-            callbackDebug = true
-        }
         if (callbackDebug)
         {
             Logger.verb("CallbackDebug", "$abstractLevel - Modified method: ${modMethod.signature} - Callback: ${callback.signature}")

@@ -845,7 +845,6 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
             "Number of unreachable modified methods: ${outputMap["numberOfUnreachableModifiedMethods"]}"
         )
         Logger.verb("INFO", "Number of handled modified methods: ${outputMap["numberOfHandledModifiedMethods"]}")
-        Logger.verb("INFO", "Number of unhandled modified methods: ${outputMap["numberOfUnhandledModifiedMethods"]}")
         return instrumentResultFile
     }
 

@@ -132,3 +132,5 @@ gradle-app.setting
 .idea/*
 !.idea/copyright
 !.idea/google-java-format.xml
+
+*.apk

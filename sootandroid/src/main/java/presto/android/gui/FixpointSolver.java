@@ -1609,21 +1609,21 @@ public class FixpointSolver {
       }
      // Logger.verb("DEBUG","[FixpointSolver] NAddView2OpNode size: "+NOpNode.getNodes(NAddView2OpNode.class).size());
       for (NOpNode addView2 : NOpNode.getNodes(NAddView2OpNode.class)) {
-        Logger.verb("DEBUG", "Start processAddView2 -> "+addView2);
+//        Logger.verb("DEBUG", "Start processAddView2 -> "+addView2);
         if (processAddView2((NAddView2OpNode) addView2)) {
           changed = true;
         }
       }
       //Logger.verb("DEBUG","[FixpointSolver] NSetIdOpNode size: "+NOpNode.getNodes(NSetIdOpNode.class).size());
       for (NOpNode setId : NOpNode.getNodes(NSetIdOpNode.class)) {
-        Logger.verb("DEBUG", "Start processSetId -> "+setId);
+//        Logger.verb("DEBUG", "Start processSetId -> "+setId);
         if (processSetId((NSetIdOpNode) setId)) {
           changed = true;
         }
       }
       //Logger.verb("DEBUG","[FixpointSolver] NSetTextOpNode size: "+NOpNode.getNodes(NSetTextOpNode.class).size());
       for (NOpNode setText : NOpNode.getNodes(NSetTextOpNode.class)) {
-        Logger.verb("DEBUG", "Start processSetText -> "+setText);
+//        Logger.verb("DEBUG", "Start processSetText -> "+setText);
         if (processSetText((NSetTextOpNode) setText)) {
           changed = true;
         }
@@ -1631,7 +1631,7 @@ public class FixpointSolver {
       //Logger.verb("DEBUG","[FixpointSolver] NSetListenerOpNode size: "+NOpNode.getNodes(NSetListenerOpNode.class).size());
       // SetListener: need to recompute path summary if anything changes
       for (NOpNode setListener : NOpNode.getNodes(NSetListenerOpNode.class)) {
-        Logger.verb("DEBUG", "Start processSetListener -> "+setListener);
+//        Logger.verb("DEBUG", "Start processSetListener -> "+setListener);
         if (processSetListener((NSetListenerOpNode) setListener)) {
           changed = true;
         }
@@ -1874,24 +1874,24 @@ public class FixpointSolver {
 
   // AddView2: parent.addView(child)
   boolean processAddView2(NAddView2OpNode node) {
-    Logger.verb("processAddView2", node.toString() + " - " + node.artificial);
+//    Logger.verb("processAddView2", node.toString() + " - " + node.artificial);
     boolean changed = false;
     Set<NNode> parentSet = solutionReceivers.get(node);
     if (parentSet == null || parentSet.isEmpty()) {
-      Logger.verb("processAddView2", "parentSet is empty");
+//      Logger.verb("processAddView2", "parentSet is empty");
       return false;
     }
 
     Set<NNode> childSet = solutionParameters.get(node);
     if (childSet == null || childSet.isEmpty()) {
-      Logger.verb("processAddView2", "childSet is empty");
+//      Logger.verb("processAddView2", "childSet is empty");
       return false;
     }
-    Logger.verb("processAddView2", "parent count: "+parentSet.size());
-    Logger.verb("processAddView2", "child count: "+childSet.size());
+//    Logger.verb("processAddView2", "parent count: "+parentSet.size());
+//    Logger.verb("processAddView2", "child count: "+childSet.size());
 
     for (NNode parent : parentSet) {
-      Logger.verb("DEBUG", "Parent node: "+parent.toString());
+//      Logger.verb("DEBUG", "Parent node: "+parent.toString());
       HashSet<NNode> reachables = new HashSet<>();
       if (!node.artificial) {
         HashSet<NNode> windowNodes = new HashSet<>();
@@ -1902,7 +1902,7 @@ public class FixpointSolver {
         while (!workingList.isEmpty()) {
           NNode currentNode = workingList.pop();
           if (currentNode instanceof NWindowNode) {
-            Logger.verb("DEBUG", "Window: " + currentNode.toString());
+//            Logger.verb("DEBUG", "Window: " + currentNode.toString());
             windowNodes.add(currentNode);
           } else {
             Iterator<NNode> parentIt = currentNode.getParents();
@@ -1916,7 +1916,7 @@ public class FixpointSolver {
             }
           }
         }
-        Logger.verb("DEBUG", "Start process addView for: " + parent.toString());
+//        Logger.verb("DEBUG", "Start process addView for: " + parent.toString());
 
         for (NNode windowNode : windowNodes) {
           reachables.addAll(graphUtil.reachableNodes(windowNode));
@@ -1932,7 +1932,7 @@ public class FixpointSolver {
           continue;
         }
         if (!parent.hasChild(child)) {
-          Logger.verb("DEBUG", "Child node added: " + child.toString());
+//          Logger.verb("DEBUG", "Child node added: " + child.toString());
           changed = true;
           child.addParent(parent);
         }
@@ -2002,7 +2002,7 @@ public class FixpointSolver {
         }
       }
     }*/
-    Logger.verb("processAddView2", "Done");
+//    Logger.verb("processAddView2", "Done");
     return changed;
   }
 
@@ -2093,19 +2093,19 @@ public class FixpointSolver {
 
   boolean processSetListener(NSetListenerOpNode node) {
     boolean changed = false;
-    Logger.verb("processSetListener",node.toString());
+    // Logger.verb("processSetListener",node.toString());
     Set<NNode> viewSet = solutionReceivers.get(node);
     if (viewSet == null || viewSet.isEmpty()) {
-      Logger.verb("processSetListener","Empty view set.");
+      // Logger.verb("processSetListener","Empty view set.");
       return false;
     }
 
     Set<NNode> listenerSet = solutionListeners.get(node);
     if (listenerSet == null || listenerSet.isEmpty()) {
-      Logger.verb("processSetListener","Empty listener set.");
+//      Logger.verb("processSetListener","Empty listener set.");
       return false;
     }
-    Logger.verb("processSetListener","NSetListernerOpNode: "+ node.toString());
+//    Logger.verb("processSetListener","NSetListernerOpNode: "+ node.toString());
     for (NNode view : viewSet) {
       NObjectNode viewObject = (NObjectNode) view;
 //      Logger.verb("processSetListener", "ViewObject: " + viewObject.toString());
