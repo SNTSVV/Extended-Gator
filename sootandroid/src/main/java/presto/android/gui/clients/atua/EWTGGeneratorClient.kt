@@ -70,8 +70,7 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
         val allDialogClass = HashMap<String, ArrayList<String>>()
         val allActivityOptionMenuItems = HashMap<String, ArrayList<String>>()
         val allActivityContextMenuItems = HashMap<String, ArrayList<String>>()
-        val allWindow_Widget_EventHandlers =
-            HashMap<String, HashMap<String, HashMap<String, ArrayList<String>>>>() // window -> widget -> event
+        val allWindow_Widget_EventHandlers = HashMap<String, HashMap<String, HashMap<String, ArrayList<String>>>>() // window -> widget -> event
         val allEventHandlers = ArrayList<String>()
         val allMeaningfullEventHandlers = ArrayList<String>()
         val allActivity_Dialogs = HashMap<String, ArrayList<String>>()
@@ -87,12 +86,10 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
         val allFragmentNodes = HashMap<Int, String>()
         val allResourceStrings = ArrayList<String>()
         val allEventHandler_WTGEdgeMap = HashMap<SootMethod, ArrayList<WTGEdge>>()
-
         //val launchActivity = ArrayList<>
         val topCallingModifiedMethods = HashMap<String, ArrayList<String>>()
         val intentCallingModifiedMethods = HashMap<String, HashSet<SootClass>>()
         val cacheMethodInvocation = HashMap<String, ArrayList<WTGEdge>>()
-
         // key: source value: hashMapOf(widget, events)
         val modMethodInvocation = HashMap<String, ArrayList<WTGEdge>>()
         val notAppearInTargetCallingMethods = ArrayList<String>()
@@ -113,11 +110,11 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
 
     val currentCallingGraph = Stack<String>()
     var intentAnalysis: IntentAnalysis? = null
-    var appPackage: String = ""
+    var appPackage: String=""
     private val log by lazy { LoggerFactory.getLogger(this::class.java) }
     override fun run(output: GUIAnalysisOutput) {
         guiAnalysisOutput = output
-        Logger.verb("INFO", "GUIUserInteractionClient start")
+        Logger.verb("INFO", "EWTGGeneratorClient start")
         //get all active activities
         initWTG(output)
         processIntentFilter()
@@ -130,13 +127,13 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
         } else {
             Configs.appPackage
         }
-        val diffFile = Files.list(apkPath.parent).filter {
-            it.fileName.toString().contains(output.appPackageName) && it.fileName.toString().endsWith("-diff.json")
-        }.findFirst().orElse(null)
+        val diffFile = Files.list(apkPath.parent).filter { it.fileName.toString().contains(output.appPackageName) && it.fileName.toString().endsWith("-diff.json") }.findFirst().orElse(null)
         if (diffFile != null) {
             readAppDiffFile(diffFile.toString(), appPackage, output)
-        } else {
-            Scene.v().applicationClasses.filter { it.name.startsWith(appPackage) }.forEach {
+        }
+        else
+        {
+            Scene.v().applicationClasses.filter{ it.name.startsWith(appPackage)}. forEach {
                 it.methods.forEach {
                     modifiedMethods.add(it.signature)
                 }
@@ -217,8 +214,7 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
 
             //get all activity-to-contextmenu transitions
             if (e.sourceNode.window is NActivityNode &&
-                e.targetNode.window is NMenuNode
-            ) {
+                e.targetNode.window is NMenuNode) {
                 val sourceActivity = e.sourceNode.window.classType.name
                 val targetContextMenu = e.targetNode.window.classType.name
                 if (!allActivityContextMenuOpen.contains(sourceActivity)) {
@@ -235,8 +231,7 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
 
             //get all menu item-dialog open
             if (e.sourceNode.window is NMenuNode &&
-                e.targetNode.window is NDialogNode
-            ) {
+                e.targetNode.window is NDialogNode) {
                 val source = e.sourceNode.window.classType.name
                 val target = e.targetNode.window.classType.name
                 if (!allMenuDialogTransition.contains(source)) {
@@ -253,8 +248,7 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
 
             //get all menu activity open
             if (e.sourceNode.window is NMenuNode &&
-                e.targetNode.window is NActivityNode
-            ) {
+                e.targetNode.window is NActivityNode) {
                 val source = e.sourceNode.window.classType.name
                 val target = e.targetNode.window.classType.name
                 if (!allMenuActivityTransition.contains(source)) {
@@ -313,12 +307,14 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
 
         clsToFilters.forEach { actName, filters ->
             val activityNode = guiAnalysisOutput!!.flowgraph.activityNode(Scene.v().getSootClass(actName))
-            if (!implicitIntentFilters.containsKey(activityNode)) {
+            if (!implicitIntentFilters.containsKey(activityNode))
+            {
                 implicitIntentFilters.put(activityNode, HashSet())
             }
             val hasDataIntentFilters = implicitIntentFilters.get(activityNode)!!
-            filters.forEach { filter ->
-                if (filter.actions.filterNot { it == "android.intent.action.MAIN" }.isNotEmpty()) {
+            filters.forEach {filter ->
+                if (filter.actions.filterNot { it == "android.intent.action.MAIN"}.isNotEmpty())
+                {
                     hasDataIntentFilters.add(filter)
                 }
             }
@@ -425,9 +421,71 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
         if (!pkgList.contains(guiAnalysisOutput.appPackageName)) {
             val addMethods = appdiffJson.get("methodsAdded") as JSONArray
             registerUpdatedMethods(addMethods, refinedPackageName)
+        } else {
+            val addMethods = appdiffJson.get("methodsAdded") as JSONArray
+            val modMethods = ArrayList(modifiedMethods)
+            modifiedMethods.clear()
+            registerUpdatedMethods(addMethods, refinedPackageName)
+            if (modifiedMethods.isNotEmpty()) {
+                val addedMethods =  ArrayList(modifiedMethods)
+                modifiedMethods.clear()
+                val proportion = modMethods.size / (addedMethods.size+modMethods.size).toDouble()
+                val newModMethodsCount = (modMethods.size*proportion).toInt()
+                val newAddMethodsCount = modMethods.size - newModMethodsCount
+                val methodWithStatementSize = HashMap<String,Int>()
+                addedMethods.forEach {
+                    var stmtCnt = 0
+                    val sootMethod = Scene.v().getMethod(it)
+                    if (sootMethod.hasActiveBody()) {
+                        val statments = sootMethod.activeBody.units.snapshotIterator()
+                        while (statments.hasNext()) {
+                            stmtCnt++
+                            statments.next()
+                        }
+                    }
+                    methodWithStatementSize.put(it,stmtCnt)
+                }
+                modMethods.forEach {
+                    var stmtCnt = 0
+                    val sootMethod = Scene.v().getMethod(it)
+                    if (sootMethod.hasActiveBody()) {
+                        val statments = sootMethod.activeBody.units.snapshotIterator()
+                        while (statments.hasNext()) {
+                            stmtCnt++
+                            statments.next()
+                        }
+                    }
+                    methodWithStatementSize.put(it,stmtCnt)
+                }
+                val sortedAddedMethods = ArrayList(addedMethods.sortedByDescending { methodWithStatementSize.get(it) })
+                val sortedModMethods = ArrayList(modMethods.sortedByDescending { methodWithStatementSize.get(it) })
+                while (modifiedMethods.size < newModMethodsCount && sortedModMethods.isNotEmpty()) {
+                    val method = sortedModMethods.first()
+                    sortedModMethods.remove(method)
+                    modifiedMethods.add(method)
+                }
+                while (modifiedMethods.size < newModMethodsCount+newAddMethodsCount && sortedAddedMethods.isNotEmpty()) {
+                    val method = sortedAddedMethods.first()
+                    sortedAddedMethods.remove(method)
+                    modifiedMethods.add(method)
+                }
+                while (modifiedMethods.size < (newModMethodsCount+newAddMethodsCount) && (
+                            sortedModMethods.isNotEmpty() || sortedAddedMethods.isNotEmpty())) {
+                    if (sortedModMethods.isNotEmpty()) {
+                        val method = sortedModMethods.first()
+                        sortedModMethods.remove(method)
+                        modifiedMethods.add(method)
+                    } else {
+                        val method = sortedAddedMethods.first()
+                        sortedAddedMethods.remove(method)
+                        modifiedMethods.add(method)
+                    }
+                }
+            } else {
+                modifiedMethods.addAll(modMethods)
+            }
         }
     }
-
 
     private fun registerUpdatedMethods(modMethods: JSONArray, refinedPackageName: String) {
         for (m in modMethods) {
@@ -444,14 +502,8 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
     }
 
     private fun findModifiedMethodInvocation(refinedPackageName: String) {
-        val callbackFinder = CallbackFinder(guiAnalysisOutput!!,
-            allMeaningfullEventHandlers,
-            widgetEvents,
-            notAppearInTargetCallingMethods,
-            topCallingModifiedMethods,
-            implicitIntentActivities = implicitIntentFilters.filter { it.value.isNotEmpty() }.map { it.key.c }.toSet(),
-            intentCallingMethods = intentCallingModifiedMethods
-        )
+        val callbackFinder = CallbackFinder(guiAnalysisOutput!!, allMeaningfullEventHandlers, widgetEvents, notAppearInTargetCallingMethods, topCallingModifiedMethods,
+            implicitIntentActivities = implicitIntentFilters.filter {it.value.isNotEmpty()}.map { it.key.c}.toSet(), intentCallingMethods = intentCallingModifiedMethods)
         modifiedMethods.forEach {
             if (!Scene.v().containsMethod(it)) {
                 notFoundModifiedMethods.add(it)
@@ -462,11 +514,35 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
 
 
     private fun getAllWindowWidgets(window: NObjectNode) {
-        if ((window is NWindowNode || window is NDialogNode) && window.classType.isApplicationClass && !guiAnalysisOutput!!.flowgraph.hier.isFragmentClass(
-                window.classType
-            )
-        )
+        if ((window is NWindowNode || window is NDialogNode) && window.classType.isApplicationClass && !guiAnalysisOutput!!.flowgraph.hier.isFragmentClass(window.classType))
             ComponentRelationCalculation.instance.windows.add(window)
+        val activity = window.classType
+        //if (window is NWindowNode || window is NDialogNode || window is NOptionsMenuNode || window is NContextMenuNode) {
+//                if (window.children.filter { it is NInflNode || it is  NViewAllocNode }.size > 0) {
+//                    if (window.children.filter { it is NInflNode || it is  NViewAllocNode }.size > 1) {
+//                        val windowKey = "$activity - ${window.toString()}"
+//                        if (!allWindow_Widgets.containsKey(window.toString())) {
+//                            allWindow_Widgets[window.toString()] = HashMap()
+//                        }
+//                        val widgetsInActivity = allWindow_Widgets[window.toString()]
+//
+//                        val layouts = window.children.filter { it is NInflNode || it is NViewAllocNode}
+//                        layouts.forEach {
+//                            getAllChildrenInWindow(it, widgetsInActivity!!)
+//                        }
+//                    } else {
+//                        val layout = window.children.first { it is NInflNode || it is NViewAllocNode }
+//                        val windowKey = "$activity - ${layout.toString()}"
+//                        if (!allWindow_Widgets.containsKey(window.toString())) {
+//                            allWindow_Widgets[window.toString()] = HashMap()
+//                        }
+//                        val widgetsInActivity = allWindow_Widgets[window.toString()]
+//                        getAllChildrenInWindow(layout, widgetsInActivity!!)
+//                    }
+//                } else {
+//                    log.warn("The source $activity doesn't have layout.")
+//                }
+        //}
         if (!allWindow_Widgets.contains(window.toString())) {
             allWindow_Widgets[window.toString()] = HashMap()
         }
@@ -474,8 +550,7 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
             simpleWindow_Widgets[window] = HashSet()
         }
         val allViewClasses = simpleWindow_Widgets[window]!!
-        val allEventHandlerMethods =
-            EWTGGeneratorClient.guiAnalysisOutput!!.getAllEventsAndTheirHandlers(window).map { it.value }
+        val allEventHandlerMethods = EWTGGeneratorClient.guiAnalysisOutput!!.getAllEventsAndTheirHandlers(window).map { it.value }
         allEventHandlerMethods.forEach {
             it.forEach {
                 if (!allEventHandlers.contains(it.signature)) {
@@ -518,7 +593,7 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
         transition["target"] = targetWindow
         transition["widget"] = e.guiWidget.toString()
         //transition["stackOps"] = e.stackOps.toString()
-        if (e.guiWidget is NMenuNode && e.eventType == EventType.click) {
+        if (e.guiWidget is NMenuNode && e.eventType == EventType.click ) {
             transition["action"] = "press_menu";
         } else {
             transition["action"] = e.eventType.toString()
@@ -671,8 +746,8 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
         val dialogFragment2 = Scene.v().getSootClass("android.support.v4.app.DialogFragment")
         allDialogClass.put("dialogFragments", ArrayList())
         output.flowgraph.hier.appClasses.forEach {
-            if (output.flowgraph.hier.isSubclassOf(it, dialogFragment1)
-                || output.flowgraph.hier.isSubclassOf(it, dialogFragment2)
+            if (output.flowgraph.hier.isSubclassOf(it,dialogFragment1)
+                || output.flowgraph.hier.isSubclassOf(it,dialogFragment2)
             ) {
                 allDialogClass.get("dialogFragments")!!.add(it.name)
             }
@@ -706,18 +781,12 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
 //            }
     }
 
-    fun getAllChildrenInWindow(
-        window: NNode,
-        allChildWidgetsMap: HashMap<Int, Any>,
-        allProcessWidgets: HashSet<NObjectNode>
-    ) {
+    fun getAllChildrenInWindow(window: NNode, allChildWidgetsMap: HashMap<Int, Any>, allProcessWidgets: HashSet<NObjectNode>) {
         val childWidget = window.children
         childWidget.forEach {
             if (!allChildWidgetsMap.containsKey(it.id)) {
                 if (it is NInflNode || it is NViewAllocNode) {
-                    val allEventHandlerMethods =
-                        EWTGGeneratorClient.guiAnalysisOutput!!.getAllEventsAndTheirHandlers(it as NObjectNode)
-                            .map { it.value }
+                    val allEventHandlerMethods = EWTGGeneratorClient.guiAnalysisOutput!!.getAllEventsAndTheirHandlers(it as NObjectNode).map { it.value }
                     allEventHandlerMethods.forEach {
                         it.forEach {
                             if (!allEventHandlers.contains(it.signature)) {
@@ -759,8 +828,7 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
                 getAllWindowWidgets(it)
             } else {
                 if (it is NObjectNode) {
-                    val allEventHandlerMethods =
-                        EWTGGeneratorClient.guiAnalysisOutput!!.getAllEventsAndTheirHandlers(it).map { it.value }
+                    val allEventHandlerMethods = EWTGGeneratorClient.guiAnalysisOutput!!.getAllEventsAndTheirHandlers(it).map { it.value }
                     allEventHandlerMethods.forEach {
                         it.forEach {
                             if (!allEventHandlers.contains(it.signature)) {
@@ -808,8 +876,10 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
         outputMap["allWindow_Widgets"] = allWindow_Widgets
         outputMap["allWindow_Widget_EventHandlers"] = allWindow_Widget_EventHandlers
         outputMap["allTransitions"] = allTransitions
+
         outputMap["menuItemTexts"] = menuItemsTexts
         outputMap["windowHandlers"] = produceWindowHandlers(ComponentRelationCalculation.instance.windowHandlersMap)
+
         outputMap["unhandledMethods"] = notAppearInTargetCallingMethods
         outputMap["unreachableMethods"] = unreachableMethods
         outputMap["unreachableModifiedMethods"] = produceUnreachableModifiedMethodsSimple()
@@ -817,20 +887,15 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
         outputMap["allUnreachedActivity"] = produceUnreachedActivity()
         outputMap["numberOfModifiedMethods"] = modifiedMethods.size
         outputMap["numberOfHandledModifiedMethods"] = modMethodInvocation.size
+
         outputMap["numberOfNotFoundModifiedMethods"] = notFoundModifiedMethods.size
         outputMap["numberOfUnreachableModifiedMethods"] = (outputMap["unreachableModifiedMethods"] as List<*>).size
-        outputMap["methodDependency"] =
-            produceMethodDependency(ComponentRelationCalculation.instance.eventHandlersDependencyCount)
-        outputMap["eventHandlerDependency"] =
-            produceEventHandlerDependency(ComponentRelationCalculation.instance.eventHandlersDependencyCount)
-        outputMap["eventDependency"] =
-            produceEventDependency(ComponentRelationCalculation.instance.eventsDependencyCount)
-        outputMap["windowsDependency"] =
-            produceWindowDependency(ComponentRelationCalculation.instance.windowsDependencyCount)
-        outputMap["event_ClassWeight"] =
-            produceEventClassWeight(ComponentRelationCalculation.instance.eventClassWeights)
-        outputMap["event_window_Correlation"] =
-            produceEventWindowCorrelations(ComponentRelationCalculation.instance.eventWindowCorrelationScores)
+        outputMap["methodDependency"] = produceMethodDependency(ComponentRelationCalculation.instance.eventHandlersDependencyCount)
+        outputMap["eventHandlerDependency"] = produceEventHandlerDependency(ComponentRelationCalculation.instance.eventHandlersDependencyCount)
+        outputMap["eventDependency"] = produceEventDependency(ComponentRelationCalculation.instance.eventsDependencyCount)
+        outputMap["windowsDependency"] = produceWindowDependency(ComponentRelationCalculation.instance.windowsDependencyCount)
+        outputMap["event_ClassWeight"] = produceEventClassWeight(ComponentRelationCalculation.instance.eventClassWeights)
+        outputMap["event_window_Correlation"] = produceEventWindowCorrelations(ComponentRelationCalculation.instance.eventWindowCorrelationScores)
         outputMap["intentFilters"] = produceIntentFilters(implicitIntentFilters)
         val instrumentResultFile = if (Configs.pathoutfilename != null && Configs.pathoutfilename.isNotBlank()) {
             outputDir.resolve(Configs.pathoutfilename)
@@ -840,11 +905,9 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
         val resultJson = JSONObject(outputMap)
         Files.write(instrumentResultFile, resultJson.toString(4).toByteArray())
         Logger.verb("INFO", "Number of modified methods: ${modifiedMethods.size}")
-        Logger.verb(
-            "INFO",
-            "Number of unreachable modified methods: ${outputMap["numberOfUnreachableModifiedMethods"]}"
-        )
+        Logger.verb("INFO", "Number of unreachable modified methods: ${outputMap["numberOfUnreachableModifiedMethods"]}")
         Logger.verb("INFO", "Number of handled modified methods: ${outputMap["numberOfHandledModifiedMethods"]}")
+        Logger.verb("INFO", "Number of unhandled modified methods: ${outputMap["numberOfUnhandledModifiedMethods"]}")
         return instrumentResultFile
     }
 
@@ -881,7 +944,7 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
             val filtersOutput = ArrayList<Any>()
             filters.forEach { filter ->
                 val filterOutput = HashMap<String, Any>()
-                output.put(actName.toString(), filterOutput)
+                output.put(actName.toString(),filterOutput)
                 filterOutput.put("actions", filter.actions)
                 filterOutput.put("categories", filter.categories)
                 filterOutput.put("dataSchemes", filter.dataSchemes)
@@ -900,8 +963,7 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
             event1String.put("targetWidget", event1.guiWidget.toString())
             event1String.put("eventType", event1.eventType.name)
             val correlationsOutput = ArrayList<Pair<Any, Any>>()
-            correlation.filter { it.value.first > 0.0 }.map { Pair(it.key, it.value) }
-                .sortedByDescending { it.second.first }.forEach {
+            correlation.filter { it.value.first > 0.0 }.map { Pair(it.key, it.value) }.sortedByDescending { it.second.first }.forEach {
                 val window = it.first
                 val score = it.second.first
                 correlationsOutput.add(Pair(window.toString(), String.format("%.4f", score)))
@@ -922,8 +984,7 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
             event1String.put("targetWidget", event1.guiWidget.toString())
             event1String.put("eventType", event1.eventType.name)
             val correlationsOutput = ArrayList<Pair<Any, Any>>()
-            correlation.filter { it.value.first > 0.0 }.map { Pair(it.key, it.value) }
-                .sortedByDescending { it.second.first }.forEach {
+            correlation.filter { it.value.first > 0.0 }.map { Pair(it.key, it.value) }.sortedByDescending { it.second.first }.forEach {
                 val window = it.first
                 val score = it.second.first
                 correlationsOutput.add(Pair(window.toString(), Pair(String.format("%.4f", score), it.second.second)))
@@ -991,12 +1052,7 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
             val windowName = it.key.toString()
             val correlations = ArrayList<Pair<String, Any>>()
             it.value.map { Pair(it.key, it.value) }.sortedByDescending { it.second.first }.forEach {
-                correlations.add(
-                    Pair(
-                        it.first.toString(),
-                        Pair(String.format("%.4f", it.second.first), it.second.second)
-                    )
-                )
+                correlations.add(Pair(it.first.toString(), Pair(String.format("%.4f", it.second.first), it.second.second)))
             }
             result.put(windowName, correlations)
         }
@@ -1065,33 +1121,6 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
         val result = HashMap<String, Any>()
         methodClassDependencyCounts.filter { it.value.isNotEmpty() }.forEach {
             result.put(it.key.signature, it.value)
-        }
-        return result
-    }
-
-    private fun produceEventCorrelations(eventCorrelationScore: Map<ComponentRelationCalculation.Event, Map<ComponentRelationCalculation.Event, Pair<Double, HashMap<String, Double>>>>): Any {
-        val result: HashMap<String, HashMap<Any, Any>> = HashMap() //root-> Window
-        eventCorrelationScore.forEach { event1, correlation ->
-            val event1String = HashMap<String, Any>()
-            event1String.put("Window", event1.source.toString())
-            event1String.put("targetWidget", event1.guiWidget.toString())
-            event1String.put("eventType", event1.eventType.name)
-            val correlationsOutput = ArrayList<Pair<Any, Any>>()
-            correlation.filter { it.value.first > 0.0 }.map { Pair(it.key, it.value) }
-                .sortedByDescending { it.second.first }.forEach {
-                val event2 = it.first
-                val score = it.second.first
-                val event2String = HashMap<String, Any>()
-                event2String.put("Window", event2.source.toString())
-                event2String.put("targetWidget", event2.guiWidget.toString())
-                event2String.put("eventType", event2.eventType.name)
-                correlationsOutput.add(Pair(event2String, Pair(String.format("%.4f", score), it.second.second)))
-            }
-            if (!result.containsKey(event1.source.toString())) {
-                result.put(event1.source.toString(), HashMap<Any, Any>())
-
-            }
-            result[event1.source.toString()]!!.put(event1String, correlationsOutput)
         }
         return result
     }
@@ -1192,12 +1221,8 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
                     if (!(widget[eventIndex!!]["modMethods"] as ArrayList<String>).contains(k))
                         (widget[eventIndex!!]["modMethods"] as ArrayList<String>).add(k)
                 } else {
-                    widget.add(
-                        hashMapOf(
-                            "eventType" to e.eventType.name, "eventHandlers" to e.eventHandlers.map { it.signature },
-                            "modMethods" to arrayListOf<String>(k)
-                        )
-                    )
+                    widget.add(hashMapOf("eventType" to e.eventType.name, "eventHandlers" to e.eventHandlers.map { it.signature },
+                        "modMethods" to arrayListOf<String>(k)))
 
                 }
 
@@ -1210,10 +1235,7 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
     internal fun produceUnhandledModifiedMethods(): HashMap<String, ArrayList<String>> {
         val unhandledModifiedMethods = HashMap<String, ArrayList<String>>()
         for (m in modifiedMethods) {
-            if (!modMethodInvocation.contains(m) && !unreachableMethods.contains(m) && topCallingModifiedMethods.contains(
-                    m
-                )
-            ) {
+            if (!modMethodInvocation.contains(m) && !unreachableMethods.contains(m) && topCallingModifiedMethods.contains(m)) {
                 topCallingModifiedMethods[m]!!.forEach {
                     addMethodTopCalling(m, it, unhandledModifiedMethods)
                 }
@@ -1232,11 +1254,7 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
         return unreachedActivity
     }
 
-    private fun addMethodTopCalling(
-        method: String,
-        eventHandler: String,
-        methodInvocations: java.util.HashMap<String, ArrayList<String>>
-    ) {
+    private fun addMethodTopCalling(method: String, eventHandler: String, methodInvocations: java.util.HashMap<String, ArrayList<String>>) {
         if (!methodInvocations.containsKey(method)) {
             methodInvocations[method] = ArrayList()
         }
@@ -1246,6 +1264,32 @@ public class EWTGGeneratorClient : GUIAnalysisClient {
         if (!eventExisted) {
             methodInvocations[method]!!.add(eventHandler)
         }
+    }
+
+    private fun produceEventCorrelations(eventCorrelationScore: Map<ComponentRelationCalculation.Event, Map<ComponentRelationCalculation.Event, Pair<Double, HashMap<String, Double>>>>): Any {
+        val result: HashMap<String, HashMap<Any, Any>> = HashMap() //root-> Window
+        eventCorrelationScore.forEach { event1, correlation ->
+            val event1String = HashMap<String, Any>()
+            event1String.put("Window", event1.source.toString())
+            event1String.put("targetWidget", event1.guiWidget.toString())
+            event1String.put("eventType", event1.eventType.name)
+            val correlationsOutput = ArrayList<Pair<Any, Any>>()
+            correlation.filter { it.value.first > 0.0 }.map { Pair(it.key, it.value) }.sortedByDescending { it.second.first }.forEach {
+                val event2 = it.first
+                val score = it.second.first
+                val event2String = HashMap<String, Any>()
+                event2String.put("Window", event2.source.toString())
+                event2String.put("targetWidget", event2.guiWidget.toString())
+                event2String.put("eventType", event2.eventType.name)
+                correlationsOutput.add(Pair(event2String, Pair(String.format("%.4f", score), it.second.second)))
+            }
+            if (!result.containsKey(event1.source.toString())) {
+                result.put(event1.source.toString(), HashMap<Any, Any>())
+
+            }
+            result[event1.source.toString()]!!.put(event1String, correlationsOutput)
+        }
+        return result
     }
 
 
